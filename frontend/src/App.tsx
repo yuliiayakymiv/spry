@@ -41,25 +41,29 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-svh max-w-6xl flex-col gap-8 px-4 py-10 md:py-14">
-      <header className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="flex flex-col gap-2">
-            <p className="flex items-center gap-2 text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
-              <span className="dot" />
-              Calendar
-              <span className="dot" />
-            </p>
-            <h1 className="text-5xl leading-none md:text-6xl">Meetings</h1>
-            <p className="font-serif text-lg text-muted-foreground italic">
-              Upcoming meetings, soonest first.
-            </p>
-          </div>
-          <Button size="lg" onClick={openCreate}>
+      <header className="flex flex-col gap-6 text-center">
+        <p className="flex items-center justify-center gap-3 text-xs font-semibold tracking-[0.35em] text-cyan-200 uppercase">
+          <span className="dot" />
+          Calendar
+          <span className="dot" />
+        </p>
+        <h1 className="magic-text font-heading text-6xl leading-none font-bold md:text-7xl">
+          Meetings
+        </h1>
+        <div className="ornament text-2xl" aria-hidden="true">
+          ✦
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <p className="text-lg text-violet-100">Upcoming meetings, soonest first.</p>
+          <Button
+            size="lg"
+            onClick={openCreate}
+            className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 shadow-[0_0_24px_rgb(255_79_163/0.6)] hover:brightness-110"
+          >
             <PlusIcon />
             Add meeting
           </Button>
         </div>
-        <div className="hairline" />
       </header>
 
       <main>

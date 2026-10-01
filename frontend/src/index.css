@@ -8,8 +8,8 @@
 
 @theme inline {
   /* Namelaka pairs a thin display serif (Hanol) with Avenir Next; these are the closest free Cyrillic-capable matches. */
-  --font-heading: 'Cormorant Garamond Variable', Georgia, serif;
-  --font-serif: 'Cormorant Garamond Variable', Georgia, serif;
+  --font-heading: 'Fredoka', 'Nunito Sans Variable', sans-serif;
+  --font-serif: 'Fredoka', 'Nunito Sans Variable', sans-serif;
   --font-sans: 'Nunito Sans Variable', 'Avenir Next', sans-serif;
   --color-heading: var(--heading);
   --color-hover: var(--hover);
@@ -54,42 +54,50 @@
 }
 
 :root {
-  /* Palette taken from namelaka.ua */
-  --background: #ffebef;
-  --foreground: #8e1500;
-  --heading: #9b6a68;
-  --hover: #ca494d;
-  --card: #fef4f6;
-  --card-foreground: #8e1500;
-  --popover: #fef4f6;
-  --popover-foreground: #8e1500;
-  --primary: #e88a92;
+  /* Magical-fairy palette: magenta, violet, turquoise and sparkle gold on a twilight sky. */
+  --background: #2a1458;
+  --foreground: #2b1a4f;
+  --heading: #6d28d9;
+  --hover: #ff4fa3;
+  --card: #fffaffeb;
+  --card-foreground: #2b1a4f;
+  --popover: #fffaff;
+  --popover-foreground: #2b1a4f;
+  --primary: #ff4fa3;
   --primary-foreground: #ffffff;
-  --secondary: #ffdde0;
-  --secondary-foreground: #7e4d4c;
-  --muted: #fff3ef;
-  --muted-foreground: #9b6a68;
-  --accent: #fff3ef;
-  --accent-foreground: #ca494d;
-  --destructive: #a72a53;
-  --border: #f6cacf;
-  --input: #f6cacf;
-  --ring: #e88a92;
-  --chart-1: #e88a92;
-  --chart-2: #ca494d;
-  --chart-3: #f9a67c;
-  --chart-4: #9b6a68;
-  --chart-5: #7e4d4c;
-  --radius: 1rem;
-  --sidebar: #fef4f6;
-  --sidebar-foreground: #8e1500;
-  --sidebar-primary: #e88a92;
+  --secondary: #ffd6ec;
+  --secondary-foreground: #be185d;
+  --muted: #f7efff;
+  --muted-foreground: #7a6a99;
+  --accent: #e0fbff;
+  --accent-foreground: #0e7490;
+  --destructive: #e11d48;
+  --border: #ead7ff;
+  --input: #dcc4ff;
+  --ring: #a855f7;
+  --chart-1: #ff4fa3;
+  --chart-2: #a855f7;
+  --chart-3: #22d3ee;
+  --chart-4: #facc15;
+  --chart-5: #6d28d9;
+  --radius: 1.25rem;
+  --sidebar: #fffaff;
+  --sidebar-foreground: #2b1a4f;
+  --sidebar-primary: #ff4fa3;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #fff3ef;
-  --sidebar-accent-foreground: #ca494d;
-  --sidebar-border: #f6cacf;
-  --sidebar-ring: #e88a92;
-  --hairline: linear-gradient(90deg, #f7dcd3, #f1d1b7 39.5%, #dfbdb4);
+  --sidebar-accent: #e0fbff;
+  --sidebar-accent-foreground: #0e7490;
+  --sidebar-border: #ead7ff;
+  --sidebar-ring: #a855f7;
+  --sparkle: #ffe27a;
+  --hairline: linear-gradient(
+    90deg,
+    transparent,
+    #ff4fa3 20%,
+    #a855f7 50%,
+    #22d3ee 80%,
+    transparent
+  );
 }
 
 .dark {
@@ -132,10 +140,25 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Twilight sky with pink, violet and turquoise glows and a scatter of tiny stars. */
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 72%, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 46% 12%, #ffe27a 50%, transparent 51%),
+      radial-gradient(1px 1px at 63% 44%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 78% 22%, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 88% 66%, #ffe27a 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 88%, #fff 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 55% 90%, #fff 50%, transparent 51%),
+      radial-gradient(45rem 30rem at 0% 0%, rgb(255 79 163 / 0.45), transparent 70%),
+      radial-gradient(45rem 30rem at 100% 10%, rgb(34 211 238 / 0.35), transparent 70%),
+      radial-gradient(60rem 40rem at 50% 110%, rgb(168 85 247 / 0.55), transparent 70%),
+      linear-gradient(160deg, #1d0b45, #3b1675 50%, #1a0f4a);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
-    scrollbar-color: #e88a92 #ffebef;
+    scrollbar-color: #ff4fa3 #2a1458;
   }
   h1,
   h2,
@@ -153,5 +176,45 @@
 }
 
 @utility dot {
-  @apply size-[3px] shrink-0 rounded-full bg-[#b89797];
+  @apply size-[5px] shrink-0 rotate-45 bg-[#ffe27a] shadow-[0_0_8px_#ffe27a];
+}
+
+/* A glowing rainbow rule with a sparkle in the middle. */
+@utility ornament {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--sparkle);
+  text-shadow: 0 0 12px var(--sparkle);
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    border-radius: 9999px;
+    background: var(--hairline);
+    box-shadow: 0 0 10px rgb(255 79 163 / 0.6);
+  }
+}
+
+/* Shimmering pink → violet → turquoise text. */
+@utility magic-text {
+  background: linear-gradient(90deg, #ff9bd2, #ff4fa3, #c084fc, #67e8f9, #ff9bd2);
+  background-size: 200% auto;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgb(255 79 163 / 0.45));
+  animation: shimmer 6s linear infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magic-text {
+    animation: none;
+  }
 }
