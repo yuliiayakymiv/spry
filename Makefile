@@ -73,3 +73,41 @@ dev-frontend: ## Run Vite dev server on http://localhost:5173 (proxies /api to :
 
 clean: ## Stop the stack and delete the database volume
 	$(COMPOSE) down -v
+
+# ---------------------------------------------------------------------------
+# Deploy to AWS — the deploy contract. GitHub Actions runs exactly these targets.
+# On Windows run them from Git Bash (needs make, jq, node, docker, aws in PATH).
+# Credentials: `aws configure` locally, OIDC in CI. Never in this file or in .env.
+# ---------------------------------------------------------------------------
+AWS_REGION      ?= eu-central-1
+ECR_REPOSITORY  ?= spry-backend
+ECS_CLUSTER     ?= spry
+ECS_SERVICE     ?= spry-backend
+ECS_TASK_FAMILY ?= spry-backend
+CONTAINER_NAME  ?= spry-backend
+S3_BUCKET       ?=
+CLOUDFRONT_DISTRIBUTION_ID ?=
+VITE_API_URL    ?=
+# Tag images with the commit SHA, never "latest": you always know what is running,
+# and a rollback is "deploy the previous tag".
+IMAGE_TAG       ?= $(shell git rev-parse HEAD)
+
+DEPLOY_ENV := AWS_REGION="$(AWS_REGION)" ECR_REPOSITORY="$(ECR_REPOSITORY)" \
+	ECS_CLUSTER="$(ECS_CLUSTER)" ECS_SERVICE="$(ECS_SERVICE)" ECS_TASK_FAMILY="$(ECS_TASK_FAMILY)" \
+	CONTAINER_NAME="$(CONTAINER_NAME)" IMAGE_TAG="$(IMAGE_TAG)" S3_BUCKET="$(S3_BUCKET)" \
+	CLOUDFRONT_DISTRIBUTION_ID="$(CLOUDFRONT_DISTRIBUTION_ID)" VITE_API_URL="$(VITE_API_URL)"
+
+.PHONY: deploy-backend release-backend rollback-backend deploy-frontend
+
+deploy-backend: ## Build image, push to ECR as :<commit sha>, roll the ECS service
+	$(DEPLOY_ENV) bash infra/aws/deploy-backend.sh
+
+release-backend: ## Point ECS at an image already in ECR (IMAGE_TAG=<sha>)
+	$(DEPLOY_ENV) bash infra/aws/release-backend.sh
+
+rollback-backend: ## Redeploy an earlier image, no rebuild: make rollback-backend TAG=<sha>
+	@test -n "$(TAG)" || (echo 'Usage: make rollback-backend TAG=<commit-sha>' && exit 1)
+	$(MAKE) release-backend IMAGE_TAG=$(TAG)
+
+deploy-frontend: ## Build with VITE_API_URL, sync to S3, invalidate CloudFront
+	$(DEPLOY_ENV) bash infra/aws/deploy-frontend.sh

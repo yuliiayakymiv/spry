@@ -7,3 +7,6 @@ node_modules/
 dist/
 .idea/
 .DS_Store
+
+# Temporary files written by infra/aws scripts (contain your account id)
+*.rendered.json
