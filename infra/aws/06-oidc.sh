@@ -11,7 +11,18 @@ if ! aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$PROVI
     --client-id-list sts.amazonaws.com --query OpenIDConnectProviderArn --output text
 fi
 
-step "Role $DEPLOY_ROLE — trusted only for repo:$GITHUB_REPO on refs/heads/main"
+# Since 15 July 2026 GitHub puts immutable IDs into the token's "sub" claim for new repos:
+#   repo:<owner>@<owner-id>/<repo>@<repo-id>:ref:refs/heads/main
+# Older repos still send repo:<owner>/<repo>:ref:refs/heads/main. We accept both, main only.
+OWNER="${GITHUB_REPO%%/*}"; REPO="${GITHUB_REPO##*/}"
+IDS=$(curl -fsS "https://api.github.com/repos/$GITHUB_REPO" | jq -r '"\(.owner.id) \(.id)"' | tr -d '\r')
+read -r OWNER_ID REPO_ID <<<"$IDS"
+SUB_OLD="repo:$GITHUB_REPO:ref:refs/heads/main"
+SUB_NEW="repo:$OWNER@$OWNER_ID/$REPO@$REPO_ID:ref:refs/heads/main"
+
+step "Role $DEPLOY_ROLE — trusted only for the main branch of $GITHUB_REPO"
+echo "   accepted sub claims: $SUB_OLD"
+echo "                        $SUB_NEW"
 TRUST=$(cat <<JSON
 {"Version":"2012-10-17","Statement":[{
   "Effect":"Allow",
@@ -19,7 +30,7 @@ TRUST=$(cat <<JSON
   "Action":"sts:AssumeRoleWithWebIdentity",
   "Condition":{"StringEquals":{
     "token.actions.githubusercontent.com:aud":"sts.amazonaws.com",
-    "token.actions.githubusercontent.com:sub":"repo:$GITHUB_REPO:ref:refs/heads/main"}}}]}
+    "token.actions.githubusercontent.com:sub":["$SUB_OLD","$SUB_NEW"]}}}]}
 JSON
 )
 if aws iam get-role --role-name "$DEPLOY_ROLE" >/dev/null 2>&1; then
