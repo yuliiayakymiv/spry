@@ -6,6 +6,9 @@ read -r -p "Delete ALL Spry resources in $AWS_REGION (account $ACCOUNT_ID)? Type
 [[ "$ok" == "delete" ]] || { echo "Cancelled."; exit 1; }
 try() { "$@" >/dev/null 2>&1 && echo "   ok: $*" || echo "   skip: $*"; }
 
+step "Cognito auth stack (user pool, Google IdP, domain)"
+try aws cloudformation delete-stack --stack-name "${AUTH_STACK:-spry-auth}"
+try aws iam delete-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-auth
 step "ECS service and cluster"
 try aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --desired-count 0
 try aws ecs delete-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force
@@ -34,5 +37,7 @@ Left for you to do by hand (they can't be deleted instantly):
  - CloudFront ${CF_DIST_ID:-}: console → CloudFront → Disable → wait ~10 min → Delete
  - Security groups spry-alb / spry-ecs / spry-rds: EC2 → Security Groups → delete
    (after the database has finished deleting, ~10 min)
+ - CloudFront Function spry-spa-routes: delete after the distribution is gone
+ - Google OAuth client: Google Cloud console → Clients → delete
  - ACM certificates, if you created any
 TXT

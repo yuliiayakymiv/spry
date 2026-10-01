@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { PlusIcon } from 'lucide-react'
 
+import { AuthStatus } from '@/components/auth-status'
 import { DeleteMeetingDialog } from '@/components/delete-meeting-dialog'
 import { MeetingDetailsDialog } from '@/components/meeting-details-dialog'
 import { MeetingFormDialog } from '@/components/meeting-form-dialog'
 import { MeetingList } from '@/components/meeting-list'
 import { Button } from '@/components/ui/button'
 import { useMeetings } from '@/hooks/queries'
+import { authEnabled } from '@/lib/auth'
 import type { Meeting } from '@/lib/api'
 
 export default function App() {
@@ -42,6 +44,11 @@ export default function App() {
   return (
     <div className="paper mx-auto my-4 flex min-h-[calc(100svh-2rem)] max-w-6xl flex-col gap-8 px-5 py-10 md:my-8 md:min-h-[calc(100svh-4rem)] md:px-10 md:py-14">
       <header className="flex flex-col gap-6 text-center">
+        {authEnabled && (
+          <div className="flex justify-end">
+            <AuthStatus />
+          </div>
+        )}
         <p className="flex items-center justify-center gap-3 text-xs font-semibold tracking-[0.35em] text-[#8a6a2f] uppercase">
           <span className="dot" />
           Calendar
