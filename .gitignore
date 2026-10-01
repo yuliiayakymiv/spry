@@ -11,3 +11,4 @@ dist/
 # Temporary files written by infra/aws scripts (contain your account id)
 *.rendered.json
 infra/aws/.state*
+infra/aws/setup.log
