@@ -40,9 +40,9 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto flex min-h-svh max-w-6xl flex-col gap-8 px-4 py-10 md:py-14">
+    <div className="paper mx-auto my-4 flex min-h-[calc(100svh-2rem)] max-w-6xl flex-col gap-8 px-5 py-10 md:my-8 md:min-h-[calc(100svh-4rem)] md:px-10 md:py-14">
       <header className="flex flex-col gap-6 text-center">
-        <p className="flex items-center justify-center gap-3 text-xs font-semibold tracking-[0.35em] text-cyan-200 uppercase">
+        <p className="flex items-center justify-center gap-3 text-xs font-semibold tracking-[0.35em] text-[#8a6a2f] uppercase">
           <span className="dot" />
           Calendar
           <span className="dot" />
@@ -54,11 +54,13 @@ export default function App() {
           ✦
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="text-lg text-violet-100">Upcoming meetings, soonest first.</p>
+          <p className="font-serif text-xl text-muted-foreground italic">
+            Upcoming meetings, soonest first.
+          </p>
           <Button
             size="lg"
             onClick={openCreate}
-            className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 shadow-[0_0_24px_rgb(255_79_163/0.6)] hover:brightness-110"
+            className="border border-[#c9a96a] bg-gradient-to-r from-[#5f78b0] to-[#8a6fb3] shadow-[0_6px_20px_rgb(95_120_176/0.35)] hover:brightness-110"
           >
             <PlusIcon />
             Add meeting
