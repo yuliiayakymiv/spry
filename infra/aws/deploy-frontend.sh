@@ -4,9 +4,11 @@
 set -euo pipefail
 export MSYS_NO_PATHCONV=1   # otherwise Git Bash turns --paths "/*" into a Windows path
 
-: "${S3_BUCKET:?}" "${CLOUDFRONT_DISTRIBUTION_ID:?}" "${VITE_API_URL:?e.g. https://api.example.com}"
+: "${S3_BUCKET:?}" "${CLOUDFRONT_DISTRIBUTION_ID:?}"
+# Empty VITE_API_URL = the app calls /api on its own origin (CloudFront forwards it to the ALB).
+VITE_API_URL="${VITE_API_URL:-}"
 
-echo "==> Building frontend with VITE_API_URL=$VITE_API_URL"
+echo "==> Building frontend (VITE_API_URL=${VITE_API_URL:-<same origin>})"
 (cd frontend && npm ci && VITE_API_URL="$VITE_API_URL" npm run build)
 
 echo "==> Uploading to s3://$S3_BUCKET"

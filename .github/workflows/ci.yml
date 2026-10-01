@@ -1,29 +1,44 @@
-name: CI
+name: CI/CD
 
-# When to run: on every push and every pull request
+# CI on every push and pull request; CD (deploy to AWS) on push to main when CI is green.
 on:
   push:
   pull_request:
 
+# Default for every job: read the code, nothing else.
 permissions:
   contents: read
 
 jobs:
   backend:
-    name: Backend · ruff
+    name: Backend · ruff + pytest
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: meetings
+          POSTGRES_PASSWORD: meetings
+          POSTGRES_DB: meetings
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U meetings -d meetings"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgresql+asyncpg://meetings:meetings@localhost:5432/meetings
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run pytest -q
 
   frontend:
-    name: Frontend · oxlint + Prettier
+    name: Frontend · oxlint + Prettier + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,3 +53,58 @@ jobs:
       - run: npm ci
       - run: npm run lint -- --deny-warnings
       - run: npx prettier --check .
+      - run: npm run build
+
+  # ---- CD: only on push to main, only if both CI jobs passed ----
+  # Repository variables (Settings → Secrets and variables → Actions → Variables):
+  #   AWS_REGION, AWS_DEPLOY_ROLE_ARN, S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID
+  # No AWS keys anywhere: the job exchanges a GitHub OIDC token for temporary credentials.
+
+  deploy-backend:
+    name: Deploy backend → ECR + ECS
+    needs: [backend, frontend]
+    # Skipped until 06-oidc.sh has run and the repository variables exist.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # allows requesting the OIDC token
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: make deploy-backend AWS_REGION=${{ vars.AWS_REGION }} IMAGE_TAG=${{ github.sha }}
+
+  deploy-frontend:
+    name: Deploy frontend → S3 + CloudFront
+    needs: [backend, frontend]
+    # Skipped until 06-oidc.sh has run and the repository variables exist.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-frontend
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: >-
+          make deploy-frontend
+          S3_BUCKET=${{ vars.S3_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID=${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+          VITE_API_URL=${{ vars.VITE_API_URL }}

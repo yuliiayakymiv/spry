@@ -54,8 +54,13 @@ function errorMessage(detail: unknown, fallback: string): string {
   return fallback
 }
 
+// Empty (default) = same origin: nginx in Docker, Vite in dev and CloudFront in AWS all
+// forward /api to the backend. Set VITE_API_URL at build time to call the API on another
+// origin instead, e.g. https://api.example.com.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(`${API_BASE}/api${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
