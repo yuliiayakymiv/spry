@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarXIcon, MapPinIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -16,6 +17,7 @@ import {
 import { useMeetings } from '@/hooks/queries'
 import type { Meeting, Participant } from '@/lib/api'
 import { formatWhen } from '@/lib/format'
+import { PERIODS, inPeriod, type Period } from '@/lib/period'
 
 const MAX_BADGES = 3
 
@@ -96,8 +98,36 @@ function MeetingTitle({ meeting }: { meeting: Meeting }) {
   )
 }
 
+function PeriodFilter({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Show meetings for"
+      className="flex flex-wrap items-center justify-center gap-2"
+    >
+      {PERIODS.map((p) => (
+        <button
+          key={p.value}
+          type="button"
+          role="radio"
+          aria-checked={value === p.value}
+          onClick={() => onChange(p.value)}
+          className={
+            value === p.value
+              ? 'rounded-full border border-[#c9a96a] bg-[#2f3f6b] px-4 py-1.5 text-sm font-semibold text-[#fffdf8] shadow-sm'
+              : 'rounded-full border border-[#c9a96a] bg-card px-4 py-1.5 text-sm font-semibold text-[#2f3f6b] transition-colors hover:bg-[#f6efe1]'
+          }
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function MeetingList({ onAdd, onOpen, onEdit, onDelete }: Props) {
   const meetings = useMeetings()
+  const [period, setPeriod] = useState<Period>('all')
 
   if (meetings.isPending) {
     return (
@@ -139,8 +169,27 @@ export function MeetingList({ onAdd, onOpen, onEdit, onDelete }: Props) {
     )
   }
 
+  const shown = inPeriod(meetings.data, period)
+  const filter = <PeriodFilter value={period} onChange={setPeriod} />
+
+  if (shown.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        {filter}
+        <div className="flex flex-col items-center gap-4 rounded-[20px] bg-card py-16 text-center">
+          <CalendarXIcon className="size-10 stroke-1 text-primary" />
+          <h2 className="text-3xl">{PERIODS.find((p) => p.value === period)?.empty}</h2>
+          <Button variant="outline" onClick={() => setPeriod('all')}>
+            Show all meetings
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <>
+    <div className="flex flex-col gap-4">
+      {filter}
       {/* Wide screens: table */}
       <div className="hidden rounded-[20px] bg-card px-2 py-1 md:block">
         <Table>
@@ -156,7 +205,7 @@ export function MeetingList({ onAdd, onOpen, onEdit, onDelete }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {meetings.data.map((meeting) => (
+            {shown.map((meeting) => (
               <TableRow
                 key={meeting.id}
                 className="group cursor-pointer hover:bg-muted"
@@ -191,7 +240,7 @@ export function MeetingList({ onAdd, onOpen, onEdit, onDelete }: Props) {
 
       {/* Narrow screens: cards */}
       <div className="flex flex-col gap-3 md:hidden">
-        {meetings.data.map((meeting) => (
+        {shown.map((meeting) => (
           <Card
             key={meeting.id}
             className="group cursor-pointer transition-colors hover:bg-muted"
@@ -218,6 +267,6 @@ export function MeetingList({ onAdd, onOpen, onEdit, onDelete }: Props) {
           </Card>
         ))}
       </div>
-    </>
+    </div>
   )
 }
