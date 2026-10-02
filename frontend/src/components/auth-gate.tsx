@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
-import { CalendarHeartIcon, LogInIcon } from 'lucide-react'
+import { LogInIcon } from 'lucide-react'
 import { useAuth } from 'react-oidc-context'
 
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <div className="ornament text-2xl" aria-hidden="true">
         ✦
       </div>
-      <CalendarHeartIcon className="size-12 text-[#8a6fb3]" aria-hidden="true" />
+      <img src="/favicon-regency.svg" alt="" aria-hidden="true" className="size-16" />
       <div className="flex max-w-md flex-col gap-2">
         <p className="font-serif text-2xl">Welcome back. Your calendar awaits.</p>
         <p className="text-muted-foreground">
