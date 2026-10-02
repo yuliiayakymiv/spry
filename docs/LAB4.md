@@ -82,7 +82,16 @@ Local dev with sign-in: put the three `VITE_COGNITO_*` stack outputs into `front
 5. **Secrets:** Cognito is a server — it can keep Google's client secret private and use it in a back-channel token exchange. Our app client runs in every visitor's browser, where any value is readable in DevTools, so it gets no secret and uses PKCE instead.
 6. **Google's consent screen** shows the app name, logo and the domain the user is signing in to — here `<prefix>.auth.eu-central-1.amazoncognito.com`, not our site. Users learn to trust that screen; a lookalike app name or a random domain is exactly what phishing exploits, so the name and authorised domain must be ours and recognisable (this is also why Google verifies branding for published apps).
 
-### Stretch (not built) — protect the API
+### Stretch (built) — protect the API, data per user
+
+What it does: the site shows a *Sign in to see your calendar* screen until you sign in; the
+frontend sends `Authorization: Bearer <access token>` on every call; `backend/app/auth.py`
+verifies signature (JWKS, cached), `exp`, `iss`, `token_use=access` and `client_id`, else **401**;
+every meeting and participant has `owner_id` = Cognito `sub`, so each account has its own calendar
+(someone else's meeting id → 404). Switched on in AWS by `make deploy-api-auth`. Tests:
+`backend/tests/test_auth.py`.
+
+Answers:
 - **Why backend:** frontend checks are UI only. The API URL is in the JS; anyone can `curl` it and read or delete every meeting. Only the server can enforce access, by verifying the JWT signature (JWKS, cached), `exp`, `iss` and `client_id` and returning 401 otherwise.
 - **Why not `AuthType: AWS_IAM`:** it requires SigV4-signed requests with AWS credentials. Browser users have Cognito JWTs, not AWS keys; adding an identity pool just to sign requests is far more machinery.
 - **JWT authorizer on API Gateway:** removes the verification code (JWKS fetch, caching, claim checks) from our app and rejects bad tokens before they reach compute. Adds API Gateway to the bill (HTTP API ≈ $1 per million requests) and another component to configure.

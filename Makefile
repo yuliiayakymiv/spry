@@ -97,7 +97,7 @@ DEPLOY_ENV := AWS_REGION="$(AWS_REGION)" ECR_REPOSITORY="$(ECR_REPOSITORY)" \
 	CONTAINER_NAME="$(CONTAINER_NAME)" IMAGE_TAG="$(IMAGE_TAG)" S3_BUCKET="$(S3_BUCKET)" \
 	CLOUDFRONT_DISTRIBUTION_ID="$(CLOUDFRONT_DISTRIBUTION_ID)" VITE_API_URL="$(VITE_API_URL)"
 
-.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth
+.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth deploy-api-auth
 
 deploy-backend: ## Build image, push to ECR as :<commit sha>, roll the ECS service
 	$(DEPLOY_ENV) bash infra/aws/deploy-backend.sh
@@ -114,3 +114,6 @@ deploy-frontend: ## Build with VITE_API_URL, sync to S3, invalidate CloudFront
 
 deploy-auth: ## Cognito sign-in stack (infra/auth.yml) + /login/ routing, then rebuild the frontend
 	bash infra/aws/07-auth.sh
+
+deploy-api-auth: ## API checks Cognito tokens, data per user (after the new backend image is deployed)
+	bash infra/aws/08-api-auth.sh

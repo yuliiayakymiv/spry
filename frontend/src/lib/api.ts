@@ -1,3 +1,5 @@
+import { SESSION_EXPIRED_EVENT, accessToken } from '@/lib/auth'
+
 export type Participant = {
   id: string
   name: string
@@ -60,10 +62,18 @@ function errorMessage(detail: unknown, fallback: string): string {
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // The API checks this token and returns only the signed-in user's data.
+  const token = accessToken()
   const response = await fetch(`${API_BASE}/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   })
+
+  if (response.status === 401) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
 
   if (!response.ok) {
     let detail: unknown

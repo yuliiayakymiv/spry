@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.auth import UserDep
 from app.db import SessionDep
 from app.models import Meeting, Participant
 from app.schemas import MeetingCreate, MeetingRead
@@ -12,9 +13,12 @@ from app.schemas import MeetingCreate, MeetingRead
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 
 
-async def _get_meeting(session: AsyncSession, meeting_id: uuid.UUID) -> Meeting:
+async def _get_meeting(session: AsyncSession, meeting_id: uuid.UUID, owner: str) -> Meeting:
+    # Someone else's meeting is a 404, not a 403: don't confirm that the id exists.
     meeting = await session.scalar(
-        select(Meeting).options(selectinload(Meeting.participants)).where(Meeting.id == meeting_id)
+        select(Meeting)
+        .options(selectinload(Meeting.participants))
+        .where(Meeting.id == meeting_id, Meeting.owner_id == owner)
     )
     if meeting is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Meeting not found")
@@ -22,26 +26,31 @@ async def _get_meeting(session: AsyncSession, meeting_id: uuid.UUID) -> Meeting:
 
 
 @router.get("", response_model=list[MeetingRead])
-async def list_meetings(session: SessionDep) -> list[Meeting]:
+async def list_meetings(session: SessionDep, user: UserDep) -> list[Meeting]:
     result = await session.scalars(
         select(Meeting)
         .options(selectinload(Meeting.participants))
+        .where(Meeting.owner_id == user)
         .order_by(Meeting.starts_at, Meeting.created_at)
     )
     return list(result)
 
 
 @router.get("/{meeting_id}", response_model=MeetingRead)
-async def get_meeting(meeting_id: uuid.UUID, session: SessionDep) -> Meeting:
-    return await _get_meeting(session, meeting_id)
+async def get_meeting(meeting_id: uuid.UUID, session: SessionDep, user: UserDep) -> Meeting:
+    return await _get_meeting(session, meeting_id, user)
 
 
 async def _get_participants(
-    session: AsyncSession, participant_ids: list[uuid.UUID]
+    session: AsyncSession, participant_ids: list[uuid.UUID], owner: str
 ) -> list[Participant]:
     if not participant_ids:
         return []
-    found = await session.scalars(select(Participant).where(Participant.id.in_(participant_ids)))
+    found = await session.scalars(
+        select(Participant).where(
+            Participant.id.in_(participant_ids), Participant.owner_id == owner
+        )
+    )
     participants = list(found)
     unknown = set(participant_ids) - {p.id for p in participants}
     if unknown:
@@ -53,9 +62,10 @@ async def _get_participants(
 
 
 @router.post("", response_model=MeetingRead, status_code=status.HTTP_201_CREATED)
-async def create_meeting(payload: MeetingCreate, session: SessionDep) -> Meeting:
-    participants = await _get_participants(session, payload.participant_ids)
+async def create_meeting(payload: MeetingCreate, session: SessionDep, user: UserDep) -> Meeting:
+    participants = await _get_participants(session, payload.participant_ids, user)
     meeting = Meeting(
+        owner_id=user,
         title=payload.title,
         description=payload.description,
         starts_at=payload.starts_at,
@@ -65,15 +75,15 @@ async def create_meeting(payload: MeetingCreate, session: SessionDep) -> Meeting
     )
     session.add(meeting)
     await session.commit()
-    return await _get_meeting(session, meeting.id)
+    return await _get_meeting(session, meeting.id, user)
 
 
 @router.put("/{meeting_id}", response_model=MeetingRead)
 async def update_meeting(
-    meeting_id: uuid.UUID, payload: MeetingCreate, session: SessionDep
+    meeting_id: uuid.UUID, payload: MeetingCreate, session: SessionDep, user: UserDep
 ) -> Meeting:
-    meeting = await _get_meeting(session, meeting_id)
-    meeting.participants = await _get_participants(session, payload.participant_ids)
+    meeting = await _get_meeting(session, meeting_id, user)
+    meeting.participants = await _get_participants(session, payload.participant_ids, user)
     meeting.title = payload.title
     meeting.description = payload.description
     meeting.starts_at = payload.starts_at
@@ -81,13 +91,13 @@ async def update_meeting(
     meeting.place = payload.place
     await session.commit()
     session.expunge(meeting)
-    return await _get_meeting(session, meeting_id)
+    return await _get_meeting(session, meeting_id, user)
 
 
 @router.delete("/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_meeting(meeting_id: uuid.UUID, session: SessionDep) -> Response:
+async def delete_meeting(meeting_id: uuid.UUID, session: SessionDep, user: UserDep) -> Response:
     meeting = await session.get(Meeting, meeting_id)
-    if meeting is None:
+    if meeting is None or meeting.owner_id != user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Meeting not found")
     await session.delete(meeting)
     await session.commit()

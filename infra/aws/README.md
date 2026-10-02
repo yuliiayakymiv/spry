@@ -12,6 +12,7 @@ Each script is safe to re-run; IDs it creates are remembered in `infra/aws/.stat
 | `05-frontend.sh` | private S3 bucket, CloudFront (S3 + `/api/*` → ALB), first frontend deploy | 10–20 min |
 | `06-oidc.sh` | GitHub OIDC provider + deploy role (main branch of this repo only) | 1 min |
 | `07-auth.sh` (`make deploy-auth`) | Cognito stack `spry-auth` from `infra/auth.yml`, CloudFront Function for `/login/`, frontend rebuild | 3–5 min |
+| `08-api-auth.sh` (`make deploy-api-auth`) | API requires a Cognito access token; meetings and participants are per user | 3–5 min |
 | `teardown.sh` | deletes all of the above | 5 min |
 
 After that, every push to `main` deploys through `.github/workflows/ci.yml`, which runs the same

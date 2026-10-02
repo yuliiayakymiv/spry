@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -32,12 +33,18 @@ meeting_participants = Table(
 )
 
 
+# owner_id = Cognito "sub" of the user who created the row. Each user sees only their own rows.
+OWNER_LEN = 128
+
+
 class Participant(Base):
     __tablename__ = "participants"
+    __table_args__ = (UniqueConstraint("owner_id", "email", name="uq_participants_owner_email"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[str] = mapped_column(String(OWNER_LEN), index=True)
     name: Mapped[str] = mapped_column(String(100))
-    email: Mapped[str] = mapped_column(String(255), unique=True)
+    email: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     meetings: Mapped[list[Meeting]] = relationship(
@@ -50,6 +57,7 @@ class Meeting(Base):
     __table_args__ = (CheckConstraint("ends_at > starts_at", name="ck_meetings_ends_after_starts"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[str] = mapped_column(String(OWNER_LEN), index=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

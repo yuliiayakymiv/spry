@@ -1,4 +1,4 @@
-import { WebStorageStateStore } from 'oidc-client-ts'
+import { User, WebStorageStateStore } from 'oidc-client-ts'
 import type { AuthProviderProps } from 'react-oidc-context'
 
 // Baked in at build time from the spry-auth stack outputs (infra/aws/deploy-frontend.sh).
@@ -33,3 +33,15 @@ export function cognitoLogoutUrl(): string {
   const params = new URLSearchParams({ client_id: clientId, logout_uri: appRoot })
   return `${cognitoDomain}/logout?${params}`
 }
+
+/** The current access token, read from where react-oidc-context keeps the session. */
+export function accessToken(): string | undefined {
+  if (!authEnabled) return undefined
+  const stored = window.sessionStorage.getItem(`oidc.user:${authority}:${clientId}`)
+  if (!stored) return undefined
+  const user = User.fromStorageString(stored)
+  return user.expired ? undefined : user.access_token
+}
+
+/** Fired by the API client on 401, so the app can drop the session and ask to sign in again. */
+export const SESSION_EXPIRED_EVENT = 'spry:session-expired'
