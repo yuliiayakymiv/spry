@@ -42,10 +42,11 @@ export default function App() {
   }
 
   return (
-    <div className="paper mx-auto my-4 flex min-h-[calc(100svh-2rem)] max-w-6xl flex-col gap-8 px-5 py-10 md:my-8 md:min-h-[calc(100svh-4rem)] md:px-10 md:py-14">
-      <header className="flex flex-col gap-6 text-center">
+    <div className="paper mx-auto my-4 flex min-h-[calc(100svh-2rem)] max-w-6xl flex-col gap-8 px-5 pt-6 pb-10 md:my-8 md:min-h-[calc(100svh-4rem)] md:px-10 md:pt-8 md:pb-14">
+      <header className="relative flex flex-col gap-6 text-center">
+        {/* On wide screens the account corner floats top-right, so the title sits higher. */}
         {authEnabled && (
-          <div className="flex justify-end">
+          <div className="flex justify-end lg:absolute lg:top-0 lg:right-0">
             <AuthStatus />
           </div>
         )}
