@@ -28,7 +28,7 @@
       },
       "location": {
         "horizontal": "CENTER",
-        "vertical": "CENTER"
+        "vertical": "START"
       },
       "sessionTimerDisplay": "NONE"
     },
