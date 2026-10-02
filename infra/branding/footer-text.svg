@@ -1,3 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="300" height="75" viewBox="0 -23.5 300 75">
-  <text x="150" y="19" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="15" letter-spacing="1.5" fill="#8a6a2f">Spry · meeting calendar</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
+  <!-- Cognito needs a logo ratio between 1:1 and 4:1, so the text is set on two lines to stay large. -->
+  <text x="120" y="31" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="30" fill="#8a6a2f">Spry</text>
+  <text x="120" y="52" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="13" letter-spacing="3" fill="#8a6a2f">MEETING CALENDAR</text>
 </svg>
