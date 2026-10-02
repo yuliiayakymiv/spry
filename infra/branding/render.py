@@ -42,7 +42,8 @@ def block() -> str:
         data = base64.b64encode((HERE / name).read_bytes()).decode()
         lines += [
             f"        - Category: {category} # {name}\n",
-            "          ColorMode: DYNAMIC\n",
+            "          ColorMode: LIGHT\n",  # settings.json forces light mode; DYNAMIC files are not used then
+
             "          Extension: SVG\n",
             f"          Bytes: {data}\n",
         ]
