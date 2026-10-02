@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <pattern id="damask" width="88" height="88" patternUnits="userSpaceOnUse">
+      <g fill="none" stroke="#d3dbec" stroke-width="1.6">
+        <path d="M44 10c-12 12-12 24 0 32 12-8 12-20 0-32zM44 78c-12-12-12-24 0-32 12 8 12 20 0 32zM10 44c12-12 24-12 32 0-8 12-20 12-32 0zM78 44c-12-12-24-12-32 0 8 12 20 12 32 0z"/>
+      </g>
+      <circle cx="0" cy="0" r="2.2" fill="#d9cbb0"/><circle cx="88" cy="0" r="2.2" fill="#d9cbb0"/>
+      <circle cx="0" cy="88" r="2.2" fill="#d9cbb0"/><circle cx="88" cy="88" r="2.2" fill="#d9cbb0"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="#e9eef7"/>
+  <rect width="1920" height="1080" fill="url(#damask)"/>
+</svg>

@@ -20,6 +20,7 @@ Cognito managed login (spry-<prefix>.auth.eu-central-1.amazoncognito.com) ──
 | `infra/aws/07-auth.sh` · `make deploy-auth` | Deploys the stack, adds a CloudFront Function so `/login/` returns the SPA, lets the GitHub deploy role read the stack outputs, rebuilds the frontend |
 | `infra/aws/deploy-frontend.sh` | Reads `Authority`, `UserPoolClientId`, `CognitoDomain` from the stack outputs and passes them to the build as `VITE_COGNITO_*` (locally and in CI — no copy-paste) |
 | `frontend/src/lib/auth.ts`, `login-page.tsx`, `components/auth-status.tsx`, `main.tsx`, `App.tsx` | `react-oidc-context`; `/login/` calls `signinRedirect()` on load; header shows **Sign in**, or the email + **Sign out** (local session cleared, then Cognito `/logout`) |
+| `infra/branding/` | Regency look of Cognito's sign-in page: colours (`settings.json`), medallion, ornament, footer text, damask background (SVG). `python infra/branding/render.py` writes them into `infra/auth.yml`; `make deploy-auth` applies |
 | `infra/aws/teardown.sh` | Deletes the auth stack too |
 
 Without the `VITE_COGNITO_*` values (e.g. `docker compose up`) the app builds and runs exactly as before, with no sign-in.
