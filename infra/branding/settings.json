@@ -40,7 +40,7 @@
       "pageHeader": {
         "enabled": true
       },
-      "spacingDensity": "COMPACT"
+      "spacingDensity": "CONDENSED"
     },
     "signUp": {
       "acceptanceElements": [
