@@ -49,10 +49,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </div>
       <CalendarHeartIcon className="size-12 text-[#8a6fb3]" aria-hidden="true" />
       <div className="flex max-w-md flex-col gap-2">
-        <p className="font-serif text-2xl">Sign in to see your calendar</p>
+        <p className="font-serif text-2xl">Welcome back. Your calendar awaits.</p>
         <p className="text-muted-foreground">
-          Every account has its own meetings and participants. Use your email and a password, or
-          continue with Google.
+          Sign in to see the meetings you have arranged, plan your day with ease, and keep every
+          engagement in its proper place.
         </p>
       </div>
       {auth.error && (
