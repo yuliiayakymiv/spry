@@ -38,7 +38,7 @@
         "enabled": true
       },
       "pageHeader": {
-        "enabled": true
+        "enabled": false
       },
       "spacingDensity": "CONDENSED"
     },
@@ -352,7 +352,7 @@
         "borderColor": "c9a96aff"
       },
       "logo": {
-        "enabled": true,
+        "enabled": false,
         "location": "CENTER"
       }
     },

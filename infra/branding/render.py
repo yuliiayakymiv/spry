@@ -16,9 +16,8 @@ END = "  # <<< branding\n"
 # Logo images (header, form, footer) must have a width:height ratio between 1:1 and 4:1,
 # so wide ornaments get transparent space above and below in their viewBox.
 ASSETS = [  # (file, Cognito asset category)
-    ("medallion.svg", "PAGE_HEADER_LOGO"),
     ("medallion.svg", "FAVICON_SVG"),
-    ("form-ornament.svg", "FORM_LOGO"),
+    ("medallion.svg", "FORM_LOGO"),  # no page header: the medallion sits above "Sign in"
     ("footer-text.svg", "PAGE_FOOTER_LOGO"),
     ("page-background.svg", "PAGE_BACKGROUND"),
 ]
