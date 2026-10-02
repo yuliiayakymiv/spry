@@ -17,7 +17,6 @@ END = "  # <<< branding\n"
 # so wide ornaments get transparent space above and below in their viewBox.
 ASSETS = [  # (file, Cognito asset category)
     ("medallion.svg", "FAVICON_SVG"),
-    ("medallion.svg", "FORM_LOGO"),  # no page header: the medallion sits above "Sign in"
     ("footer-text.svg", "PAGE_FOOTER_LOGO"),
     ("page-background.svg", "PAGE_BACKGROUND"),
 ]
