@@ -17,7 +17,7 @@ aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$REGISTRY"
 
 echo "==> Building $IMAGE"
-docker build --platform linux/amd64 -t "$IMAGE" backend
+docker build --platform linux/amd64 --provenance=false -t "$IMAGE" backend
 
 echo "==> Pushing $IMAGE"
 docker push "$IMAGE"

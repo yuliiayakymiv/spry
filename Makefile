@@ -97,7 +97,7 @@ DEPLOY_ENV := AWS_REGION="$(AWS_REGION)" ECR_REPOSITORY="$(ECR_REPOSITORY)" \
 	CONTAINER_NAME="$(CONTAINER_NAME)" IMAGE_TAG="$(IMAGE_TAG)" S3_BUCKET="$(S3_BUCKET)" \
 	CLOUDFRONT_DISTRIBUTION_ID="$(CLOUDFRONT_DISTRIBUTION_ID)" VITE_API_URL="$(VITE_API_URL)"
 
-.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth deploy-api-auth
+.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth deploy-api-auth \n	deploy-reports report-now report-local
 
 deploy-backend: ## Build image, push to ECR as :<commit sha>, roll the ECS service
 	$(DEPLOY_ENV) bash infra/aws/deploy-backend.sh
@@ -117,3 +117,18 @@ deploy-auth: ## Cognito sign-in stack (infra/auth.yml) + /login/ routing, then r
 
 deploy-api-auth: ## API checks Cognito tokens, data per user (after the new backend image is deployed)
 	bash infra/aws/08-api-auth.sh
+
+# ---------------------------------------------------------------------------
+# Weekly report (Lab 5): EventBridge Scheduler → SQS → builder Lambda → S3 → mailer Lambda → SES
+# ---------------------------------------------------------------------------
+REPORTS_STACK ?= spry-reports
+WEEK ?=
+
+deploy-reports: ## Report stack (infra/reports.yml); needs REPORT_RECIPIENTS in .env
+	bash infra/aws/09-reports.sh
+
+report-now: ## Build and email a report on demand: make report-now WEEK=2026-W39 (empty = last week)
+	AWS_REGION="$(AWS_REGION)" REPORTS_STACK="$(REPORTS_STACK)" WEEK="$(WEEK)" bash infra/aws/report-now.sh
+
+report-local: ## Print a week's CSV from the compose database: make report-local WEEK=2026-W40
+	$(COMPOSE) run --rm backend python -m app.reports.weekly $(WEEK)

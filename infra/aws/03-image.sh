@@ -13,7 +13,7 @@ TAG=$(git rev-parse HEAD)
 IMAGE="$REGISTRY/$ECR_REPOSITORY:$TAG"
 step "Building and pushing $IMAGE"
 aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
-docker build --platform linux/amd64 -t "$IMAGE" backend
+docker build --platform linux/amd64 --provenance=false -t "$IMAGE" backend
 docker push "$IMAGE"
 save FIRST_IMAGE "$IMAGE"
 echo "Done. Next: bash infra/aws/04-ecs.sh"
