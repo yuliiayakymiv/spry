@@ -268,3 +268,24 @@ def test_handler_maps_errors(signed_in, monkeypatch) -> None:
     assert agenda_lambda.handler(event(), None)["statusCode"] == 429
 
     assert agenda_lambda.handler(event({"text": "x"}), None)["statusCode"] == 400
+
+
+def test_windows_zone_name_without_system_tzdata(signed_in, monkeypatch) -> None:
+    """Chrome on Windows reports the old name Europe/Kiev. The Debian trixie image ships it only
+    in tzdata-legacy, so without the tzdata package it was a 400 (the parser "failed")."""
+    import zoneinfo
+
+    from app.ai.agenda import ParsedAgenda
+
+    usage = {"input_tokens": 1, "output_tokens": 1}
+    monkeypatch.setattr(
+        agenda_lambda, "parse_agenda", lambda *a: (ParsedAgenda.model_validate(GOOD), usage)
+    )
+    zoneinfo.reset_tzpath(to=[])  # no /usr/share/zoneinfo, like the slim image
+    zoneinfo.ZoneInfo.clear_cache()
+    try:
+        body = {"text": "1) prices", "today": "2026-10-16", "tz": "Europe/Kiev"}
+        assert agenda_lambda.handler(event(body), None)["statusCode"] == 200
+    finally:
+        zoneinfo.reset_tzpath()
+        zoneinfo.ZoneInfo.clear_cache()
