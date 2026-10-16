@@ -8,7 +8,7 @@
 # Optional: PARSER_MODEL=us.amazon.nova-lite-v1:0 BUDGET_USD=50 make deploy-ai
 source "$(dirname "$0")/env.sh"
 cd "$(dirname "$0")/../.."
-: "${CF_DOMAIN:?run 05-frontend.sh first}"
+: "${CF_DOMAIN:?run 05-frontend.sh first, or pass the site: CF_DOMAIN=dxxxx.cloudfront.net make deploy-ai}"
 
 envval() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r"'; }
 BUDGET_EMAIL="${BUDGET_EMAIL:-$(envval BUDGET_EMAIL)}"
@@ -63,7 +63,7 @@ Parser URL: $PARSER_URL
   curl -i -X POST $PARSER_URL      → 401 (no token: the model is never called)
 
 Next:
-  1. make deploy-frontend S3_BUCKET=$S3_BUCKET CLOUDFRONT_DISTRIBUTION_ID=$CF_DIST_ID
+  1. make deploy-frontend S3_BUCKET=${S3_BUCKET:-<bucket>} CLOUDFRONT_DISTRIBUTION_ID=${CF_DIST_ID:-<distribution id>}
      (or push to main) — the build picks up VITE_PARSER_URL from this stack.
   2. AWS Budgets emails $BUDGET_EMAIL: no confirmation needed.
   3. Logs: aws logs tail /aws/lambda/spry-agenda-parser --follow --format short
