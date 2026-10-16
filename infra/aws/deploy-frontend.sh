@@ -24,11 +24,20 @@ else
   echo "==> Stack $AUTH_STACK not found: building without sign-in"
 fi
 
+# Lab 6: the agenda parser's function URL (infra/ai.yml). Empty = the Paste box is hidden.
+AI_STACK="${AI_STACK:-spry-ai}"
+VITE_PARSER_URL=$(aws cloudformation describe-stacks --stack-name "$AI_STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='ParserUrl'].OutputValue" --output text 2>/dev/null \
+  | tr -d '\r' || true)
+[[ "$VITE_PARSER_URL" == "None" ]] && VITE_PARSER_URL=""
+echo "==> Agenda parser: ${VITE_PARSER_URL:-<not deployed, Paste an agenda hidden>}"
+
 echo "==> Building frontend (VITE_API_URL=${VITE_API_URL:-<same origin>})"
 (cd frontend && npm ci && VITE_API_URL="$VITE_API_URL" \
   VITE_COGNITO_AUTHORITY="${VITE_COGNITO_AUTHORITY:-}" \
   VITE_COGNITO_CLIENT_ID="${VITE_COGNITO_CLIENT_ID:-}" \
-  VITE_COGNITO_DOMAIN="${VITE_COGNITO_DOMAIN:-}" npm run build)
+  VITE_COGNITO_DOMAIN="${VITE_COGNITO_DOMAIN:-}" \
+  VITE_PARSER_URL="${VITE_PARSER_URL:-}" npm run build)
 
 echo "==> Uploading to s3://$S3_BUCKET"
 # Hashed assets never change → cache for a year. index.html must always be revalidated.

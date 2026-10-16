@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PlusIcon } from 'lucide-react'
 
+import { AgendaDialog } from '@/components/agenda-dialog'
 import { AuthStatus } from '@/components/auth-status'
 import { DeleteMeetingDialog } from '@/components/delete-meeting-dialog'
 import { MeetingDetailsDialog } from '@/components/meeting-details-dialog'
@@ -19,6 +20,8 @@ export default function App() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [viewedId, setViewedId] = useState<string | null>(null)
   const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null)
+  const [agendaOpen, setAgendaOpen] = useState(false)
+  const [agendaKey, setAgendaKey] = useState(0)
 
   // Look the meeting up in the list so the details stay fresh after an edit.
   const viewedMeeting = meetings.data?.find((m) => m.id === viewedId) ?? null
@@ -35,6 +38,12 @@ export default function App() {
   const openDetails = (meeting: Meeting) => {
     setViewedId(meeting.id)
     setDetailsOpen(true)
+  }
+  const openAgenda = (meeting: Meeting) => {
+    setDetailsOpen(false)
+    setViewedId(meeting.id)
+    setAgendaKey((k) => k + 1) // a new key = a fresh form for this opening
+    setAgendaOpen(true)
   }
   const openDelete = (meeting: Meeting) => {
     setDetailsOpen(false)
@@ -92,6 +101,17 @@ export default function App() {
         onOpenChange={setDetailsOpen}
         onEdit={openEdit}
         onDelete={openDelete}
+        onAgenda={openAgenda}
+      />
+      <AgendaDialog
+        key={agendaKey}
+        meeting={viewedMeeting}
+        open={agendaOpen}
+        onOpenChange={(next) => {
+          setAgendaOpen(next)
+          // Back to the meeting, so the saved agenda is visible right away.
+          if (!next) setDetailsOpen(true)
+        }}
       />
       <DeleteMeetingDialog meeting={meetingToDelete} onClose={() => setMeetingToDelete(null)} />
     </div>

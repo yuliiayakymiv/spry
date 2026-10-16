@@ -13,6 +13,7 @@ from sqlalchemy import (
     Uuid,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -64,6 +65,11 @@ class Meeting(Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     place: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Lab 6. The agenda the user saved: {"items": [...], "action_items": [...]}.
+    agenda: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # What the model suggested for it, with the model id and prompt version. Null when typed by
+    # hand. Suggested vs saved is the quality signal for the parser.
+    ai_suggestion: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     participants: Mapped[list[Participant]] = relationship(
         secondary=meeting_participants,

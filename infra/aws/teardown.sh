@@ -6,6 +6,9 @@ read -r -p "Delete ALL Spry resources in $AWS_REGION (account $ACCOUNT_ID)? Type
 [[ "$ok" == "delete" ]] || { echo "Cancelled."; exit 1; }
 try() { "$@" >/dev/null 2>&1 && echo "   ok: $*" || echo "   skip: $*"; }
 
+step "Agenda parser stack (Lab 6: Lambda, function URL, budget)"
+try aws cloudformation delete-stack --stack-name "${AI_STACK:-spry-ai}"
+try aws iam delete-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-ai
 step "Cognito auth stack (user pool, Google IdP, domain)"
 try aws cloudformation delete-stack --stack-name "${AUTH_STACK:-spry-auth}"
 try aws iam delete-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-auth

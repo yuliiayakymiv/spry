@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Spry "Paste an agenda" (Lab 6). The agenda-parser Lambda (backend image, OUTSIDE the VPC) has a
+  public function URL; it checks the Cognito access token, calls Claude on Amazon Bedrock and
+  returns a validated agenda as JSON. It never writes anything: Save goes through the API.
+  Deployed by infra/aws/10-ai.sh (stack name spry-ai). Region: eu-central-1; the model itself is
+  called in us-east-1 (BedrockRegion).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: spry
+  ImageUri:
+    Type: String
+    Description: Backend image in ECR (must contain app/ai and anthropic[bedrock])
+  SiteUrl:
+    Type: String
+    Description: The site's origin for CORS, e.g. https://d123.cloudfront.net (no trailing slash)
+  LocalUrl:
+    Type: String
+    Default: http://localhost:5173
+    Description: Vite dev server, so `make dev-frontend` can call the deployed parser too
+  CognitoIssuer:
+    Type: String
+    Description: https://cognito-idp.<region>.amazonaws.com/<user pool id> (spry-auth Authority)
+  CognitoClientId:
+    Type: String
+  ParserModel:
+    Type: String
+    Default: anthropic.claude-opus-5-5
+    AllowedValues:
+      - anthropic.claude-opus-5-5
+      - anthropic.claude-sonnet-5-5
+      - anthropic.claude-haiku-5-5
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+  BudgetEmail:
+    Type: String
+    Description: Where the budget alert goes
+  BudgetUsd:
+    Type: Number
+    Default: 5
+    Description: >-
+      Monthly cost budget for the whole account. Note: the Lab 2-5 stack (ALB, Fargate, RDS)
+      already costs more than $5 a month, so at $5 the alert fires in the first days.
+
+Resources:
+  ParserLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ProjectName}-agenda-parser
+      RetentionInDays: 14
+
+  ParserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectName}-agenda-parser
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Logs only. No VPC access, no database, no S3: the parser holds no data at all.
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: call-claude
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # "*" for now, as the lab says. Narrowing it is a discussion question
+              # (docs/LAB6.md): one model, one region.
+              - Effect: Allow
+                Action: bedrock-mantle:CreateInference
+                Resource: "*"
+
+  AgendaParser:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-agenda-parser
+      Description: Paste an agenda - free text to a suggested agenda (Claude on Bedrock)
+      Role: !GetAtt ParserRole.Arn
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      # Same image as the API, the Lambda runtime client and another handler (as in Lab 5).
+      ImageConfig:
+        EntryPoint: [python, -m, awslambdaric]
+        Command: [app.ai.agenda_lambda.handler]
+        WorkingDirectory: /app
+      Architectures: [x86_64]
+      MemorySize: 512
+      Timeout: 30
+      # No VpcConfig: outside the VPC it reaches Bedrock and Cognito's JWKS over the internet,
+      # with no NAT gateway and no interface endpoint.
+      Environment:
+        Variables:
+          PARSER_MODEL: !Ref ParserModel
+          BEDROCK_REGION: !Ref BedrockRegion
+          COGNITO_ISSUER: !Ref CognitoIssuer
+          COGNITO_CLIENT_ID: !Ref CognitoClientId
+          PARSER_MAX_CHARS: "10000"
+      LoggingConfig:
+        LogGroup: !Ref ParserLogGroup
+
+  ParserUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !Ref AgendaParser
+      # Public URL; the handler itself checks the Cognito token and returns 401 without one.
+      AuthType: NONE
+      Cors:
+        AllowOrigins:
+          - !Ref SiteUrl
+          - !Ref LocalUrl
+        AllowMethods: [POST]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 3600
+
+  # A public function URL needs both permissions (AWS has required the second one since 2025).
+  ParserUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgendaParser
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  ParserInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AgendaParser
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
+  # The cheapest insurance in the course: an email when the month's bill passes the limit.
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub ${ProjectName}-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref BudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref BudgetEmail
+
+Outputs:
+  ParserUrl:
+    Description: VITE_PARSER_URL for the frontend build
+    Value: !GetAtt ParserUrl.FunctionUrl
+  ParserLogGroup:
+    Value: !Ref ParserLogGroup

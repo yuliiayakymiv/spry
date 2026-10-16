@@ -29,6 +29,14 @@ export function useUpdateMeeting() {
   })
 }
 
+export function useSaveAgenda() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.saveAgenda,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: meetingsKey }),
+  })
+}
+
 export function useDeleteMeeting() {
   const queryClient = useQueryClient()
   return useMutation({

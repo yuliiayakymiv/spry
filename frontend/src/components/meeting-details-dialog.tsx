@@ -1,5 +1,12 @@
 import { useRef } from 'react'
-import { ClockIcon, MapPinIcon, PencilIcon, Trash2Icon, UsersIcon } from 'lucide-react'
+import {
+  ClockIcon,
+  ListChecksIcon,
+  MapPinIcon,
+  PencilIcon,
+  Trash2Icon,
+  UsersIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -23,9 +30,17 @@ type Props = {
   onOpenChange: (open: boolean) => void
   onEdit: (meeting: Meeting) => void
   onDelete: (meeting: Meeting) => void
+  onAgenda: (meeting: Meeting) => void
 }
 
-export function MeetingDetailsDialog({ meeting, open, onOpenChange, onEdit, onDelete }: Props) {
+export function MeetingDetailsDialog({
+  meeting,
+  open,
+  onOpenChange,
+  onEdit,
+  onDelete,
+  onAgenda,
+}: Props) {
   const editButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
@@ -75,6 +90,9 @@ export function MeetingDetailsDialog({ meeting, open, onOpenChange, onEdit, onDe
               )}
 
               <div className="hairline" />
+              <AgendaView meeting={meeting} onAgenda={onAgenda} />
+
+              <div className="hairline" />
               <div className="flex flex-col gap-3">
                 <h3 className="flex items-center gap-2 text-lg">
                   <UsersIcon className="size-4" />
@@ -117,5 +135,70 @@ export function MeetingDetailsDialog({ meeting, open, onOpenChange, onEdit, onDe
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function AgendaView({
+  meeting,
+  onAgenda,
+}: {
+  meeting: Meeting
+  onAgenda: (meeting: Meeting) => void
+}) {
+  const agenda = meeting.agenda
+  const empty = !agenda || (agenda.items.length === 0 && agenda.action_items.length === 0)
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-lg">
+          <ListChecksIcon className="size-4" />
+          Agenda
+        </h3>
+        <Button variant="outline" size="sm" onClick={() => onAgenda(meeting)}>
+          {empty ? 'Add agenda' : 'Edit agenda'}
+        </Button>
+      </div>
+      {empty ? (
+        <p className="text-muted-foreground">No agenda yet.</p>
+      ) : (
+        <>
+          {agenda.items.length > 0 && (
+            <ol className="flex list-decimal flex-col gap-1 pl-5">
+              {agenda.items.map((item, i) => (
+                <li key={i}>
+                  <span className="font-semibold">{item.topic}</span>
+                  {(item.owner || item.minutes) && (
+                    <span className="text-sm text-muted-foreground">
+                      {' — '}
+                      {[item.owner, item.minutes && `${item.minutes} min`]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+          {agenda.action_items.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-semibold">Action items</p>
+              <ul className="flex list-disc flex-col gap-1 pl-5">
+                {agenda.action_items.map((a, i) => (
+                  <li key={i}>
+                    {a.task}
+                    {(a.owner || a.due) && (
+                      <span className="text-sm text-muted-foreground">
+                        {' — '}
+                        {[a.owner, a.due && `by ${a.due}`].filter(Boolean).join(', ')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   )
 }

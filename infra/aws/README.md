@@ -13,6 +13,7 @@ Each script is safe to re-run; IDs it creates are remembered in `infra/aws/.stat
 | `06-oidc.sh` | GitHub OIDC provider + deploy role (main branch of this repo only) | 1 min |
 | `07-auth.sh` (`make deploy-auth`) | Cognito stack `spry-auth` from `infra/auth.yml`, CloudFront Function for `/login/`, frontend rebuild | 3–5 min |
 | `08-api-auth.sh` (`make deploy-api-auth`) | API requires a Cognito access token; meetings and participants are per user | 3–5 min |
+| `10-ai.sh` (`make deploy-ai`) | Lab 6: agenda-parser Lambda + function URL (`infra/ai.yml`, stack `spry-ai`), budget alert; see `docs/LAB6.md` | 2–3 min |
 | `teardown.sh` | deletes all of the above | 5 min |
 
 After that, every push to `main` deploys through `.github/workflows/ci.yml`, which runs the same

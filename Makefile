@@ -132,3 +132,20 @@ report-now: ## Build and email a report on demand: make report-now WEEK=2026-W39
 
 report-local: ## Print a week's CSV from the compose database: make report-local WEEK=2026-W40
 	$(COMPOSE) run --rm backend python -m app.reports.weekly $(WEEK)
+
+# ---------------------------------------------------------------------------
+# Paste an agenda (Lab 6): browser → parser Lambda (function URL) → Claude on Bedrock
+# Your laptop needs AWS credentials with Bedrock access (aws configure) for llm-hello / parse.
+# ---------------------------------------------------------------------------
+.PHONY: llm-hello parse deploy-ai
+TEXT ?=
+
+llm-hello: ## First call to Claude on Bedrock: prints the answer, stop_reason and usage
+	cd backend && uv run python -m app.ai.hello
+
+parse: ## Parse an agenda from your laptop: make parse TEXT="Пн 10:00, синк ..."
+	@test -n "$(TEXT)" || (echo 'Usage: make parse TEXT="..."' && exit 1)
+	cd backend && uv run python -m app.ai.agenda "$(TEXT)"
+
+deploy-ai: ## Parser stack (infra/ai.yml); needs BUDGET_EMAIL in .env, then make deploy-frontend
+	bash infra/aws/10-ai.sh

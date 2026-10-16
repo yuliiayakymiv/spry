@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     # (docker compose, tests). In AWS both are set, and every /api call needs a valid token.
     cognito_issuer: str = ""  # https://cognito-idp.<region>.amazonaws.com/<user pool id>
     cognito_client_id: str = ""
+    # Lab 6 agenda parser. The model id lives in configuration, never in code.
+    parser_model: str = "anthropic.claude-opus-5-5"
+    # Claude on Bedrock (the bedrock-mantle endpoint) is called in us-east-1, as the lab asks,
+    # even though the rest of Spry runs in eu-central-1.
+    bedrock_region: str = "us-east-1"
+    parser_max_chars: int = 10_000
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://localhost:3000",

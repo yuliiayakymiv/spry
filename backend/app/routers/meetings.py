@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.auth import UserDep
 from app.db import SessionDep
 from app.models import Meeting, Participant
-from app.schemas import MeetingCreate, MeetingRead
+from app.schemas import AgendaSave, MeetingCreate, MeetingRead
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 
@@ -89,6 +89,28 @@ async def update_meeting(
     meeting.starts_at = payload.starts_at
     meeting.ends_at = payload.ends_at
     meeting.place = payload.place
+    await session.commit()
+    session.expunge(meeting)
+    return await _get_meeting(session, meeting_id, user)
+
+
+@router.put("/{meeting_id}/agenda", response_model=MeetingRead)
+async def save_agenda(
+    meeting_id: uuid.UUID, payload: AgendaSave, session: SessionDep, user: UserDep
+) -> Meeting:
+    """The only way an agenda is written: typed by hand or confirmed after Paste an agenda.
+
+    The parser Lambda never writes; it only suggests. Whatever the model suggested comes back
+    here as ai_suggestion and is kept next to what the user actually saved.
+    """
+    meeting = await _get_meeting(session, meeting_id, user)
+    meeting.agenda = payload.agenda.model_dump(mode="json")
+    # Sent only right after a parse. A later hand edit leaves the stored suggestion alone, so
+    # "suggested vs saved" still compares against what the model originally proposed.
+    if "ai_suggestion" in payload.model_fields_set:
+        meeting.ai_suggestion = (
+            payload.ai_suggestion.model_dump(mode="json") if payload.ai_suggestion else None
+        )
     await session.commit()
     session.expunge(meeting)
     return await _get_meeting(session, meeting_id, user)
