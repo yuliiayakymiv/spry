@@ -1,7 +1,7 @@
 # Lab 6 — Paste an agenda
 
-The user pastes an agenda (email, chat message, notes) into a meeting, Claude on Amazon Bedrock
-parses it, the app shows the agenda form pre-filled, the user checks it and saves.
+The user pastes an agenda (email, chat message, notes) into a meeting, an LLM on Amazon Bedrock
+(Amazon Nova Pro: Claude is not available on this account's AWS Free plan, see ADR 0006) parses it, the app shows the agenda form pre-filled, the user checks it and saves.
 **The model suggests, the person decides.** Decision record: [ADR 0006](adr/0006-llm-agenda-parsing.md).
 
 ## What is where
@@ -40,14 +40,14 @@ flowchart LR
   end
 
   subgraph ext["AWS us-east-1"]
-    bedrock["Amazon Bedrock<br/>Claude Opus 5.5 · Messages API"]
+    bedrock["Amazon Bedrock<br/>Amazon Nova Pro · Converse API"]
   end
 
   spa -->|"GET bundle"| cf
   spa -->|"sign in (OIDC + PKCE)"| cognito
   spa ==>|"1 parse: pasted text + token (HTTPS POST)"| parser
   parser -->|"JWKS (verify token)"| cognito
-  parser ==>|"2 prompt + record_agenda tool"| bedrock
+  parser ==>|"2 prompt + record_agenda tool (Converse)"| bedrock
   bedrock -.->|"tool_use JSON"| parser
   parser -.->|"suggested agenda JSON"| spa
   spa ==>|"3 save: agenda + ai_suggestion (REST, token)"| cf
@@ -63,14 +63,18 @@ access and no write path; that split is the point of the lab.
 
 All commands from **Git Bash** in the repository root, as in Labs 2–5. Region stays `eu-central-1`.
 
-1. **Model access.** Console → switch region to **us-east-1** → Amazon Bedrock → Model catalog →
-   open *Claude Opus 5.5* (and *Claude Haiku 5.5* for the comparison). If asked, submit the
-   Anthropic use-case form. Approval can take a while, so do it first.
-2. **First call from your laptop** (your `aws configure` user needs Bedrock permissions; an admin
-   user has them):
+1. **Model access.** Nothing to request: Amazon Nova is available on the Free plan. Check it in
+   CloudShell (the `>_` icon in the console):
    ```sh
-   make install            # pulls anthropic[bedrock] into backend/.venv
-   make llm-hello          # prints a sentence, then: end_turn <in> <out>
+   aws bedrock-runtime converse --region us-east-1 --model-id us.amazon.nova-pro-v1:0 \
+     --messages '[{"role":"user","content":[{"text":"hi"}]}]' --query output.message.content[0].text
+   ```
+   Any text back = access works. (Claude needs a paid plan; see ADR 0006.)
+2. **First call from your laptop** (optional; your `aws configure` user needs Bedrock
+   permissions):
+   ```sh
+   make install            # backend/.venv with the new dependencies
+   make llm-hello          # prints a sentence, then the stop reason and usage
    make parse TEXT="Пн 10:00, синк по прайсингу, 45 хв. 1) нові тарифи Pro — Олена, 15 хв 2) фідбек від клієнтів — Taras 3) що робимо з річною знижкою. Taras до п'ятниці збирає порівняння з конкурентами."
    ```
 3. **Deploy the new backend image** (it has `app/ai`, `anthropic[bedrock]` and migration `0003`):
@@ -94,8 +98,8 @@ All commands from **Git Bash** in the repository root, as in Labs 2–5. Region 
    ```sh
    aws logs tail /aws/lambda/spry-agenda-parser --since 1h --format short | grep agenda_parsed
    ```
-9. **Haiku comparison (optional):** `PARSER_MODEL=anthropic.claude-haiku-5-5 make deploy-ai`, run
-   the five inputs again, then `make deploy-ai` to go back to Opus.
+9. **Cheaper model comparison (optional):** `PARSER_MODEL=us.amazon.nova-lite-v1:0 make deploy-ai`,
+   run the five inputs again, then `make deploy-ai` to go back to Nova Pro.
 
 After every later change in `backend/app/ai/`, deploy the backend image first, then
 `make deploy-ai` again: the Lambda does not follow ECS deploys by itself.
@@ -155,12 +159,12 @@ form, highlighted as *suggested*; nothing is stored until the user presses Save,
 through the normal API with its validation and owner check. The worst case is a wrong suggestion
 that the user sees and corrects.
 
-**3. Cost.** One parse with Opus 5.5 ≈ $0.01–0.02 (take the exact number from your log line).
-20 organisations × 30 agendas/week ≈ 2,600 parses/month → ≈ **$26–52/month with Opus**,
-≈ **$1/month with Haiku**. One VPC interface endpoint is $7.30/month per AZ *before a single
-parse*; at 20 organisations Opus costs more than the endpoint, while at class-project volume
-(a few dozen parses) the endpoint would cost far more than all the tokens. Running the parser
-outside the VPC means paying only for parses.
+**3. Cost.** One parse with Nova Pro ≈ $0.002–0.004 (take the exact number from your log line;
+Claude Opus 5.5 would be ≈ $0.01–0.02). 20 organisations × 30 agendas/week ≈ 2,600
+parses/month → ≈ **$5–10/month with Nova Pro** (≈ $26–52 with Opus). One VPC interface endpoint
+is $7.30/month per AZ *before a single parse*: at class-project volume (a few dozen parses) the
+endpoint would cost far more than all the tokens, and even at 20 organisations it is about the
+same as the whole Nova bill. Running the parser outside the VPC means paying only for parses.
 
 **4. Is `agenda-v2` better than `agenda-v1`?** Every saved agenda has `ai_suggestion` (with
 `prompt_version`) next to the final `agenda`. Turn the 500 pairs into an **evaluation set**:

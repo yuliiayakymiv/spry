@@ -1,4 +1,4 @@
-# ADR 0006 — Parse pasted agendas with Claude on Bedrock, outside the VPC
+# ADR 0006 — Parse pasted agendas with an LLM on Bedrock, outside the VPC
 
 - Status: accepted
 - Date: 2026-10-15
@@ -22,10 +22,16 @@ Constraints:
 
 ## Decision
 
-1. **Model:** Claude Opus 5.5 (`anthropic.claude-opus-5-5`) through the Anthropic Messages API on
-   Amazon Bedrock (`bedrock-mantle`), `effort: low`. The model id is configuration
-   (`PARSER_MODEL`), so Haiku 5.5 can be measured on the same inputs and swapped in without a
-   code change.
+1. **Model: Amazon Nova Pro** (`us.amazon.nova-pro-v1:0`) through the provider-neutral
+   **Converse API** (`bedrock-runtime`), `temperature: 0`. The lab asks for Claude Opus 5.5
+   through the Anthropic Messages API, but this AWS account is on the **Free plan**, where
+   Anthropic models are not available: the call returns `403 ... is not available for this
+   account`. Nova is Amazon's own model and works on the Free plan. The code keeps both paths:
+   an `anthropic.claude-*` id in `PARSER_MODEL` goes through `bedrock-mantle`, any other id
+   through Converse, so moving to Claude after a plan upgrade is a configuration change
+   (`PARSER_MODEL=anthropic.claude-opus-5-5 make deploy-ai`), not a code change. This is the
+   Converse-vs-Messages trade-off from the lab in practice: the neutral interface is what let
+   us switch vendors when one became unavailable.
 2. **The parser is a separate Lambda outside the VPC** (`spry-agenda-parser`, `infra/ai.yml`),
    built from the backend image with another handler, behind a public function URL. It needs no
    database: text in, JSON out. Outside the VPC it reaches Bedrock and Cognito's JWKS over the
@@ -49,15 +55,20 @@ Constraints:
 | Alternative | Why it lost |
 |---|---|
 | **Call Bedrock from the API (ECS, in the VPC) through a `bedrock-mantle` interface endpoint** | ~$7.30/month per endpoint per AZ even with zero parses, which breaks "$0 when idle". It also puts a slow (2–8 s) call that is driven by untrusted text inside the process that holds the database credentials and serves every other request. |
+| **Claude Opus 5.5 on Bedrock, as the lab suggests** | Not available on the AWS Free plan (403). Upgrading the plan means the account starts charging real money once the credits run out, for a class project whose ALB, Fargate and RDS already use the credits. Kept as a one-line switch for later. |
 | **Claude API directly (api.anthropic.com) instead of Bedrock** | Needs an API key stored as a secret and rotated, a second bill outside AWS, and no IAM, CloudTrail or AWS Budgets on the spend. Bedrock gives the same Messages API shape with the Lambda role as the only credential. |
 | **A regular-expression parser** | Free and deterministic, but the input has no fixed shape: "1) нові тарифи Pro — Олена, 15 хв", "Taras до п'ятниці", English emails with signatures. Relative dates ("by Friday") need the user's week. A regex either misses most real inputs or grows into an unmaintainable grammar per language. |
 
 ## Consequences
 
-- **Cost per parse** with Opus 5.5: ~1,500–2,500 input tokens (system prompt, tool schema, text)
-  and ~300–600 output tokens ≈ **$0.01–0.02**. With Haiku 5.5 ≈ $0.0005. Measured numbers are in
-  `docs/LAB6.md`. For 20 organisations × 30 agendas a week (~2,600 parses a month): ~$42/month
-  with Opus, ~$1/month with Haiku; the parser Lambda itself is within the free tier.
+- **Cost per parse** with Nova Pro ($0.80 / $3.20 per 1M tokens): ~1,500–2,500 input tokens
+  (system prompt, tool schema, text) and ~300–600 output tokens ≈ **$0.002–0.004**. For
+  comparison, the same parse with Claude Opus 5.5 would be ≈ $0.01–0.02. Measured numbers are in
+  `docs/LAB6.md`. For 20 organisations × 30 agendas a week (~2,600 parses a month): ~$5–10/month
+  with Nova Pro (~$42 with Opus); the parser Lambda itself is within the free tier.
+- **Quality risk:** Nova is weaker than Claude on messy multilingual text (Ukrainian, mixed
+  scripts, relative dates). The five test inputs in `docs/LAB6.md` measure it; the
+  `ai_suggestion` column keeps measuring it in use.
 - **Logged:** one JSON line per parse in `/aws/lambda/spry-agenda-parser`: user (Cognito `sub`),
   model, prompt version, input/output tokens, latency, cost in dollars. **The pasted text is
   never logged.**

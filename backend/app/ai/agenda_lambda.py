@@ -42,7 +42,14 @@ def _bearer(event: dict) -> str:
 
 
 def _is_throttled(exc: Exception) -> bool:
-    return getattr(exc, "status_code", None) == 429 or type(exc).__name__ == "RateLimitError"
+    # anthropic SDK: RateLimitError / 429; boto3 (Converse): ClientError ThrottlingException.
+    code = getattr(exc, "response", None)
+    code = code.get("Error", {}).get("Code") if isinstance(code, dict) else None
+    return (
+        getattr(exc, "status_code", None) == 429
+        or type(exc).__name__ == "RateLimitError"
+        or code == "ThrottlingException"
+    )
 
 
 def handler(event: dict, context: object) -> dict:

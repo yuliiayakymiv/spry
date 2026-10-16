@@ -13,9 +13,10 @@ class Settings(BaseSettings):
     cognito_issuer: str = ""  # https://cognito-idp.<region>.amazonaws.com/<user pool id>
     cognito_client_id: str = ""
     # Lab 6 agenda parser. The model id lives in configuration, never in code.
-    parser_model: str = "anthropic.claude-opus-5-5"
-    # Claude on Bedrock (the bedrock-mantle endpoint) is called in us-east-1, as the lab asks,
-    # even though the rest of Spry runs in eu-central-1.
+    # Amazon Nova by default: this account is on the AWS Free plan, where Anthropic models are
+    # not available (ADR 0006). anthropic.claude-* ids still work once the plan allows them.
+    parser_model: str = "us.amazon.nova-pro-v1:0"
+    # Bedrock is called in us-east-1, as the lab asks, though the rest of Spry is in eu-central-1.
     bedrock_region: str = "us-east-1"
     parser_max_chars: int = 10_000
     cors_origins: Annotated[list[str], NoDecode] = [

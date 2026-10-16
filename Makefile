@@ -134,13 +134,13 @@ report-local: ## Print a week's CSV from the compose database: make report-local
 	$(COMPOSE) run --rm backend python -m app.reports.weekly $(WEEK)
 
 # ---------------------------------------------------------------------------
-# Paste an agenda (Lab 6): browser → parser Lambda (function URL) → Claude on Bedrock
+# Paste an agenda (Lab 6): browser → parser Lambda (function URL) → model on Bedrock (Nova)
 # Your laptop needs AWS credentials with Bedrock access (aws configure) for llm-hello / parse.
 # ---------------------------------------------------------------------------
 .PHONY: llm-hello parse deploy-ai
 TEXT ?=
 
-llm-hello: ## First call to Claude on Bedrock: prints the answer, stop_reason and usage
+llm-hello: ## First call to the model on Bedrock: prints the answer, stop_reason and usage
 	cd backend && uv run python -m app.ai.hello
 
 parse: ## Parse an agenda from your laptop: make parse TEXT="Пн 10:00, синк ..."

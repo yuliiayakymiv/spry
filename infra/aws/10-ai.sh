@@ -5,7 +5,7 @@
 # Re-run it after every change to backend/app/ai/, so the Lambda picks up the new image.
 # Needs in the repo-root .env (git-ignored):
 #   BUDGET_EMAIL=you@example.com             where the budget alert goes
-# Optional: PARSER_MODEL=anthropic.claude-haiku-5-5 BUDGET_USD=50 BEDROCK_REGION=eu-central-1 make deploy-ai
+# Optional: PARSER_MODEL=us.amazon.nova-lite-v1:0 BUDGET_USD=50 make deploy-ai
 source "$(dirname "$0")/env.sh"
 cd "$(dirname "$0")/../.."
 : "${CF_DOMAIN:?run 05-frontend.sh first}"
@@ -31,14 +31,14 @@ CLIENT_ID=$(auth_out UserPoolClientId)
 echo "   image:   $IMAGE_URI"
 echo "   site:    https://$CF_DOMAIN"
 echo "   issuer:  $ISSUER"
-echo "   model:   ${PARSER_MODEL:-anthropic.claude-opus-5-5}"
+echo "   model:   ${PARSER_MODEL:-us.amazon.nova-pro-v1:0}"
 
 step "CloudFormation stack $AI_STACK (parser Lambda + function URL, budget alert)"
 aws cloudformation deploy --stack-name "$AI_STACK" --template-file infra/ai.yml \
   --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset --tags PROJECT_NAME=spry \
   --parameter-overrides ImageUri="$IMAGE_URI" SiteUrl="https://$CF_DOMAIN" \
     CognitoIssuer="$ISSUER" CognitoClientId="$CLIENT_ID" \
-    ParserModel="${PARSER_MODEL:-anthropic.claude-opus-5-5}" BedrockRegion="${BEDROCK_REGION:-us-east-1}" \
+    ParserModel="${PARSER_MODEL:-us.amazon.nova-pro-v1:0}" BedrockRegion="${BEDROCK_REGION:-us-east-1}" \
     BudgetEmail="$BUDGET_EMAIL" BudgetUsd="${BUDGET_USD:-5}"
 save AI_STACK "$AI_STACK"
 

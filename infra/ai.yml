@@ -27,8 +27,13 @@ Parameters:
     Type: String
   ParserModel:
     Type: String
-    Default: anthropic.claude-opus-5-5
+    # Amazon Nova: the account is on the AWS Free plan, where Anthropic models are unavailable
+    # (ADR 0006). Switch to a Claude id once the plan allows it; the code handles both.
+    Default: us.amazon.nova-pro-v1:0
     AllowedValues:
+      - us.amazon.nova-pro-v1:0
+      - us.amazon.nova-lite-v1:0
+      - us.amazon.nova-micro-v1:0
       - anthropic.claude-opus-5-5
       - anthropic.claude-sonnet-5-5
       - anthropic.claude-haiku-5-5
@@ -72,15 +77,21 @@ Resources:
             Statement:
               # "*" for now, as the lab says. Narrowing it is a discussion question
               # (docs/LAB6.md): one model, one region.
+              # Claude through the Anthropic Messages API (bedrock-mantle):
               - Effect: Allow
                 Action: bedrock-mantle:CreateInference
+                Resource: "*"
+              # Nova through the Converse API (bedrock-runtime). A us.* inference profile
+              # routes to several US regions, so both the profile and the models need it.
+              - Effect: Allow
+                Action: bedrock:InvokeModel
                 Resource: "*"
 
   AgendaParser:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-agenda-parser
-      Description: Paste an agenda - free text to a suggested agenda (Claude on Bedrock)
+      Description: Paste an agenda - free text to a suggested agenda (model on Bedrock)
       Role: !GetAtt ParserRole.Arn
       PackageType: Image
       Code:
