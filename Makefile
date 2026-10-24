@@ -97,7 +97,8 @@ DEPLOY_ENV := AWS_REGION="$(AWS_REGION)" ECR_REPOSITORY="$(ECR_REPOSITORY)" \
 	CONTAINER_NAME="$(CONTAINER_NAME)" IMAGE_TAG="$(IMAGE_TAG)" S3_BUCKET="$(S3_BUCKET)" \
 	CLOUDFRONT_DISTRIBUTION_ID="$(CLOUDFRONT_DISTRIBUTION_ID)" VITE_API_URL="$(VITE_API_URL)"
 
-.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth deploy-api-auth \n	deploy-reports report-now report-local
+.PHONY: deploy-backend release-backend rollback-backend deploy-frontend deploy-auth deploy-api-auth \
+	report-now report-local lambda-images
 
 deploy-backend: ## Build image, push to ECR as :<commit sha>, roll the ECS service
 	$(DEPLOY_ENV) bash infra/aws/deploy-backend.sh
@@ -112,7 +113,7 @@ rollback-backend: ## Redeploy an earlier image, no rebuild: make rollback-backen
 deploy-frontend: ## Build with VITE_API_URL, sync to S3, invalidate CloudFront
 	$(DEPLOY_ENV) bash infra/aws/deploy-frontend.sh
 
-deploy-auth: ## Cognito sign-in stack (infra/auth.yml) + /login/ routing, then rebuild the frontend
+deploy-auth: ## /login/ routing (CloudFront Function) + frontend rebuild; the user pool is infra/auth.tf
 	bash infra/aws/07-auth.sh
 
 deploy-api-auth: ## API checks Cognito tokens, data per user (after the new backend image is deployed)
@@ -120,24 +121,23 @@ deploy-api-auth: ## API checks Cognito tokens, data per user (after the new back
 
 # ---------------------------------------------------------------------------
 # Weekly report (Lab 5): EventBridge Scheduler → SQS → builder Lambda → S3 → mailer Lambda → SES
+# The resources are Terraform (infra/reports.tf); these targets only use them.
 # ---------------------------------------------------------------------------
-REPORTS_STACK ?= spry-reports
 WEEK ?=
 
-deploy-reports: ## Report stack (infra/reports.yml); needs REPORT_RECIPIENTS in .env
-	bash infra/aws/09-reports.sh
-
 report-now: ## Build and email a report on demand: make report-now WEEK=2026-W39 (empty = last week)
-	AWS_REGION="$(AWS_REGION)" REPORTS_STACK="$(REPORTS_STACK)" WEEK="$(WEEK)" bash infra/aws/report-now.sh
+	AWS_REGION="$(AWS_REGION)" WEEK="$(WEEK)" \
+	QUEUE_URL="$$(terraform -chdir=infra output -raw report_queue_url 2>/dev/null)" bash infra/aws/report-now.sh
 
 report-local: ## Print a week's CSV from the compose database: make report-local WEEK=2026-W40
 	$(COMPOSE) run --rm backend python -m app.reports.weekly $(WEEK)
 
 # ---------------------------------------------------------------------------
 # Paste an agenda (Lab 6): browser → parser Lambda (function URL) → model on Bedrock (Nova)
+# The Lambda, its URL and the budget are Terraform (infra/ai.tf).
 # Your laptop needs AWS credentials with Bedrock access (aws configure) for llm-hello / parse.
 # ---------------------------------------------------------------------------
-.PHONY: llm-hello parse deploy-ai
+.PHONY: llm-hello parse
 TEXT ?=
 
 llm-hello: ## First call to the model on Bedrock: prints the answer, stop_reason and usage
@@ -147,5 +147,29 @@ parse: ## Parse an agenda from your laptop: make parse TEXT="Пн 10:00, син�
 	@test -n "$(TEXT)" || (echo 'Usage: make parse TEXT="..."' && exit 1)
 	cd backend && uv run python -m app.ai.agenda "$(TEXT)"
 
-deploy-ai: ## Parser stack (infra/ai.yml); needs BUDGET_EMAIL in .env, then make deploy-frontend
-	bash infra/aws/10-ai.sh
+lambda-images: ## Point report-builder and agenda-parser at the image the API runs now
+	bash infra/aws/lambda-images.sh
+
+# ---------------------------------------------------------------------------
+# Infrastructure as code (Lab 7): Terraform in infra/, state and applies in HCP Terraform
+# (workspace spry-dev). Plans are fine from a laptop; there is deliberately NO apply target:
+# applies happen in HCP Terraform after a merge to main.
+# ---------------------------------------------------------------------------
+TF := terraform -chdir=infra
+.PHONY: infra-init infra-fmt infra-validate infra-plan infra-output
+
+infra-init: ## terraform init (needs `terraform login` once)
+	$(TF) init
+
+infra-fmt: ## Format the .tf files
+	$(TF) fmt -recursive
+
+infra-validate: ## fmt check + validate (no cloud access needed beyond init)
+	$(TF) fmt -check -recursive
+	$(TF) validate
+
+infra-plan: ## Speculative plan, run in HCP Terraform, streamed here; changes nothing
+	$(TF) plan
+
+infra-output: ## Show the outputs (user pool, queue URL, parser URL ...)
+	$(TF) output

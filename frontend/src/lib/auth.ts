@@ -10,7 +10,7 @@ const cognitoDomain = (import.meta.env.VITE_COGNITO_DOMAIN ?? '').replace(/\/$/,
 /** False when the build has no Cognito settings (e.g. docker compose): the app runs without sign-in. */
 export const authEnabled = Boolean(authority && clientId && cognitoDomain)
 
-// Must match a CallbackURL / LogoutURL in infra/auth.yml exactly, trailing slash included.
+// Must match a CallbackURL / LogoutURL in infra/auth.tf exactly, trailing slash included.
 const appRoot = `${window.location.origin}/`
 
 export const oidcConfig: AuthProviderProps = {

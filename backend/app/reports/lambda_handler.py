@@ -1,4 +1,4 @@
-"""report-builder Lambda: same image as the API, different handler (infra/reports.yml).
+"""report-builder Lambda: same image as the API, different handler (infra/reports.tf).
 
 Accepts a direct invocation ({"week": ..., "source": ...}) or an SQS event whose record bodies
 have the same shape. Writes reports/<week>.csv to S3; the mailer reacts to that upload.

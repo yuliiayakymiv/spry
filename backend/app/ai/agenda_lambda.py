@@ -1,4 +1,4 @@
-"""agenda-parser Lambda (infra/ai.yml): same image as the API, different handler.
+"""agenda-parser Lambda (infra/ai.tf): same image as the API, different handler.
 
 Outside the VPC: it needs no database, only Bedrock and Cognito's public keys, both reached
 over the internet. POST {"text", "today", "tz"} with a Cognito access token → the parsed agenda.
@@ -23,7 +23,7 @@ log.setLevel(logging.INFO)
 
 
 def _response(status: int, body: dict) -> dict:
-    # CORS headers are added by the function URL itself (infra/ai.yml).
+    # CORS headers are added by the function URL itself (infra/ai.tf).
     return {
         "statusCode": status,
         "headers": {"content-type": "application/json"},

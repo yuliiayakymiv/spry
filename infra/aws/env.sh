@@ -29,6 +29,11 @@ save() {
   export "$1=$2"
 }
 
+# A value Terraform published for the scripts (infra/publish.tf): infra_out cognito_client_id
+infra_out() {
+  aws ssm get-parameter --name "/spry/infra/$1" --query Parameter.Value --output text 2>/dev/null | tr -d '\r'
+}
+
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 
 ACCOUNT_ID=$(t aws sts get-caller-identity --query Account --output text)

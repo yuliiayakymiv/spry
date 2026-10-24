@@ -6,12 +6,16 @@ read -r -p "Delete ALL Spry resources in $AWS_REGION (account $ACCOUNT_ID)? Type
 [[ "$ok" == "delete" ]] || { echo "Cancelled."; exit 1; }
 try() { "$@" >/dev/null 2>&1 && echo "   ok: $*" || echo "   skip: $*"; }
 
-step "Agenda parser stack (Lab 6: Lambda, function URL, budget)"
-try aws cloudformation delete-stack --stack-name "${AI_STACK:-spry-ai}"
-try aws iam delete-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-ai
-step "Cognito auth stack (user pool, Google IdP, domain)"
-try aws cloudformation delete-stack --stack-name "${AUTH_STACK:-spry-auth}"
-try aws iam delete-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-auth
+step "Terraform-managed part (Labs 4-6: Cognito, weekly report, agenda parser)"
+cat <<'TXT'
+   Not deleted from here: it belongs to Terraform (infra/). First remove the two
+   `prevent_destroy = true` lines (user pool in auth.tf, reports bucket in reports.tf) in a PR,
+   then in HCP Terraform: workspace spry-dev -> Settings -> Destruction and Deletion ->
+   Queue destroy plan, read it, confirm. The ECS cluster and the database below are read by
+   Terraform as data sources, so destroy the Terraform part FIRST.
+TXT
+read -r -p "Has the Terraform destroy finished (or is there nothing to destroy)? [y/N] " done
+[[ "$done" == "y" ]] || { echo "Stopped. Run it again after the destroy."; exit 1; }
 step "ECS service and cluster"
 try aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --desired-count 0
 try aws ecs delete-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force

@@ -11,10 +11,13 @@ Each script is safe to re-run; IDs it creates are remembered in `infra/aws/.stat
 | `04-ecs.sh` | execution role, task definition, cluster, ALB + target group, Fargate service | 5–8 min |
 | `05-frontend.sh` | private S3 bucket, CloudFront (S3 + `/api/*` → ALB), first frontend deploy | 10–20 min |
 | `06-oidc.sh` | GitHub OIDC provider + deploy role (main branch of this repo only) | 1 min |
-| `07-auth.sh` (`make deploy-auth`) | Cognito stack `spry-auth` from `infra/auth.yml`, CloudFront Function for `/login/`, frontend rebuild | 3–5 min |
+| `07-auth.sh` (`make deploy-auth`) | CloudFront Function for `/login/`, frontend rebuild (the user pool itself is Terraform, `infra/auth.tf`) | 2–3 min |
 | `08-api-auth.sh` (`make deploy-api-auth`) | API requires a Cognito access token; meetings and participants are per user | 3–5 min |
-| `10-ai.sh` (`make deploy-ai`) | Lab 6: agenda-parser Lambda + function URL (`infra/ai.yml`, stack `spry-ai`), budget alert; see `docs/LAB6.md` | 2–3 min |
-| `teardown.sh` | deletes all of the above | 5 min |
+| `lambda-images.sh` (`make lambda-images`) | point the report-builder and agenda-parser Lambdas at the image the API runs | 1 min |
+| `teardown.sh` | deletes all of the above (after a Terraform destroy of `infra/`) | 5 min |
+
+Labs 4–6 resources (Cognito, weekly report, agenda parser) are **Terraform** since Lab 7:
+`infra/*.tf`, state and applies in HCP Terraform — see `infra/README.md`.
 
 After that, every push to `main` deploys through `.github/workflows/ci.yml`, which runs the same
 targets you can run by hand: `make deploy-backend`, `make deploy-frontend`,
