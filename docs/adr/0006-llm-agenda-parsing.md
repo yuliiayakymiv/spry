@@ -3,6 +3,9 @@
 - Status: accepted
 - Date: 2026-10-15
 - Lab: 6 (Paste an agenda)
+- Note (Lab 7): the stack is Terraform now (`infra/ai.tf`, ADR 0007). Where this ADR says
+  `make deploy-ai`, read: change `parser_model` in `infra/terraform.tfvars` in a PR, or
+  `make lambda-images` for a new image.
 
 ## Context
 

@@ -1,29 +1,14 @@
 #!/usr/bin/env bash
-# Sign-in with Cognito (Lab 4): email + password and "Continue with Google".
-#   1. deploys infra/auth.yml as the CloudFormation stack spry-auth
-#   2. lets CloudFront serve index.html for app routes such as /login/ (CloudFront Function)
-#   3. lets the GitHub deploy role read the stack outputs, so CI builds with the same values
-# Needs in the repo-root .env (git-ignored, never committed):
-#   COGNITO_DOMAIN_PREFIX=spry-yourname   GOOGLE_CLIENT_ID=…   GOOGLE_CLIENT_SECRET=…
+# Sign-in routing (Lab 4). The Cognito user pool, Google IdP, app client and domain are
+# Terraform now (infra/auth.tf, applied by HCP Terraform). This script does the rest:
+#   1. lets CloudFront serve index.html for app routes such as /login/ (CloudFront Function)
+#   2. rebuilds the frontend with the Cognito values Terraform published to SSM
 source "$(dirname "$0")/env.sh"
 cd "$(dirname "$0")/../.."
 : "${CF_DIST_ID:?run 05-frontend.sh first}" "${CF_DOMAIN:?run 05-frontend.sh first}"
-
-envval() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r"'; }
-PREFIX="${COGNITO_DOMAIN_PREFIX:-$(envval COGNITO_DOMAIN_PREFIX)}"
-GID="${GOOGLE_CLIENT_ID:-$(envval GOOGLE_CLIENT_ID)}"
-GSECRET="${GOOGLE_CLIENT_SECRET:-$(envval GOOGLE_CLIENT_SECRET)}"
-: "${PREFIX:?set COGNITO_DOMAIN_PREFIX in .env}" "${GID:?set GOOGLE_CLIENT_ID in .env}" \
-  "${GSECRET:?set GOOGLE_CLIENT_SECRET in .env}"
-AUTH_STACK="${AUTH_STACK:-spry-auth}"
+COGNITO_DOMAIN=$(infra_out cognito_domain)
+: "${COGNITO_DOMAIN:?/spry/infra/cognito_domain not found — apply infra/ (Terraform) first}"
 SITE_URL="https://$CF_DOMAIN"
-
-step "CloudFormation stack $AUTH_STACK (user pool, Google IdP, app client, domain $PREFIX)"
-aws cloudformation deploy --stack-name "$AUTH_STACK" --template-file infra/auth.yml \
-  --no-fail-on-empty-changeset --tags PROJECT_NAME=spry \
-  --parameter-overrides DomainPrefix="$PREFIX" SiteUrl="$SITE_URL" \
-    GoogleClientId="$GID" GoogleClientSecret="$GSECRET"
-save AUTH_STACK "$AUTH_STACK"
 
 step "CloudFront Function: /login/ and other app routes -> /index.html"
 FN=spry-spa-routes
@@ -58,22 +43,14 @@ aws cloudfront update-distribution --id "$CF_DIST_ID" --if-match "$DIST_ETAG" \
   --distribution-config file://dist.rendered.json --query Distribution.Status --output text
 rm -f dist.rendered.json
 
-step "Deploy role may read the auth stack outputs (CI builds the frontend with them)"
-if aws iam get-role --role-name "$DEPLOY_ROLE" >/dev/null 2>&1; then
-  aws iam put-role-policy --role-name "$DEPLOY_ROLE" --policy-name read-spry-auth --policy-document \
-    "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"cloudformation:DescribeStacks\",\"Resource\":\"arn:aws:cloudformation:$AWS_REGION:$ACCOUNT_ID:stack/$AUTH_STACK/*\"}]}"
-fi
-
 step "Rebuild the frontend with the Cognito settings"
-S3_BUCKET="$S3_BUCKET" CLOUDFRONT_DISTRIBUTION_ID="$CF_DIST_ID" AUTH_STACK="$AUTH_STACK" \
-  bash infra/aws/deploy-frontend.sh
+S3_BUCKET="$S3_BUCKET" CLOUDFRONT_DISTRIBUTION_ID="$CF_DIST_ID" bash infra/aws/deploy-frontend.sh
 
-REDIRECT=$(t aws cloudformation describe-stacks --stack-name "$AUTH_STACK" \
-  --query "Stacks[0].Outputs[?OutputKey=='GoogleRedirectUri'].OutputValue" --output text)
+REDIRECT="$COGNITO_DOMAIN/oauth2/idpresponse"
 cat <<TXT
 
 Google OAuth client must have (Google Cloud console → Clients → your Web client):
-  Authorised JavaScript origin:  https://$PREFIX.auth.$AWS_REGION.amazoncognito.com
+  Authorised JavaScript origin:  $COGNITO_DOMAIN
   Authorised redirect URI:       $REDIRECT
 Consent screen: External, scopes openid/email/profile only, status "In production".
 

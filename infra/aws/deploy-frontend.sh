@@ -8,28 +8,24 @@ export MSYS_NO_PATHCONV=1   # otherwise Git Bash turns --paths "/*" into a Windo
 # Empty VITE_API_URL = the app calls /api on its own origin (CloudFront forwards it to the ALB).
 VITE_API_URL="${VITE_API_URL:-}"
 
-# Sign-in settings come from the auth stack's outputs (infra/auth.yml), never copy-pasted.
-# None of them is secret: they end up in the public JavaScript anyway.
-AUTH_STACK="${AUTH_STACK:-spry-auth}"
-output() {
-  aws cloudformation describe-stacks --stack-name "$AUTH_STACK" \
-    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text 2>/dev/null | tr -d '\r'
+# Sign-in settings and the parser URL come from Terraform (infra/publish.tf puts its outputs into
+# SSM under /spry/infra/), never copy-pasted. None of them is secret: they end up in the public
+# JavaScript anyway. Missing values (infrastructure not applied yet) mean "feature hidden".
+infra_out() {
+  aws ssm get-parameter --name "/spry/infra/$1" --query Parameter.Value --output text 2>/dev/null \
+    | tr -d '\r' || true
 }
-if aws cloudformation describe-stacks --stack-name "$AUTH_STACK" >/dev/null 2>&1; then
-  VITE_COGNITO_AUTHORITY=$(output Authority)
-  VITE_COGNITO_CLIENT_ID=$(output UserPoolClientId)
-  VITE_COGNITO_DOMAIN=$(output CognitoDomain)
+VITE_COGNITO_AUTHORITY=$(infra_out cognito_authority)
+VITE_COGNITO_CLIENT_ID=$(infra_out cognito_client_id)
+VITE_COGNITO_DOMAIN=$(infra_out cognito_domain)
+if [[ -n "$VITE_COGNITO_CLIENT_ID" ]]; then
   echo "==> Sign-in: $VITE_COGNITO_DOMAIN (client $VITE_COGNITO_CLIENT_ID)"
 else
-  echo "==> Stack $AUTH_STACK not found: building without sign-in"
+  echo "==> /spry/infra/* not found: building without sign-in"
 fi
 
-# Lab 6: the agenda parser's function URL (infra/ai.yml). Empty = the Paste box is hidden.
-AI_STACK="${AI_STACK:-spry-ai}"
-VITE_PARSER_URL=$(aws cloudformation describe-stacks --stack-name "$AI_STACK" \
-  --query "Stacks[0].Outputs[?OutputKey=='ParserUrl'].OutputValue" --output text 2>/dev/null \
-  | tr -d '\r' || true)
-[[ "$VITE_PARSER_URL" == "None" ]] && VITE_PARSER_URL=""
+# Lab 6: the agenda parser's function URL. Empty = the Paste box is hidden.
+VITE_PARSER_URL=$(infra_out parser_url)
 echo "==> Agenda parser: ${VITE_PARSER_URL:-<not deployed, Paste an agenda hidden>}"
 
 echo "==> Building frontend (VITE_API_URL=${VITE_API_URL:-<same origin>})"

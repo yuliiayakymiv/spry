@@ -151,7 +151,7 @@ export const api = {
 
 // ---------------------------------------------------------------- Lab 6: Paste an agenda
 
-// The parser's function URL (infra/ai.yml), baked in at build time. Empty = feature hidden.
+// The parser's function URL (infra/ai.tf), baked in at build time. Empty = feature hidden.
 export const PARSER_URL = (import.meta.env.VITE_PARSER_URL ?? '').replace(/\/$/, '')
 export const PARSER_MAX_CHARS = 10_000
 

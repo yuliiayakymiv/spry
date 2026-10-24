@@ -2,18 +2,13 @@
 # Turn on token checks in the API (Lab 4 stretch): give the ECS task the user pool's issuer
 # and app client id, then roll the service. From then on every /api call (except /api/health)
 # needs "Authorization: Bearer <Cognito access token>", and each user sees only their own data.
-# Run AFTER the backend image with app/auth.py is deployed (push to main → CI), and after 07-auth.sh.
+# Run AFTER the backend image with app/auth.py is deployed (push to main → CI), and after the Terraform apply of infra/auth.tf.
 source "$(dirname "$0")/env.sh"
 cd "$(dirname "$0")/../.."
-AUTH_STACK="${AUTH_STACK:-spry-auth}"
-
-out() {
-  t aws cloudformation describe-stacks --stack-name "$AUTH_STACK" \
-    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text
-}
-ISSUER=$(out Authority)
-CLIENT_ID=$(out UserPoolClientId)
-: "${ISSUER:?stack $AUTH_STACK not found — run 07-auth.sh first}" "${CLIENT_ID:?}"
+# Values published by Terraform (infra/auth.tf -> infra/publish.tf).
+ISSUER=$(infra_out cognito_authority)
+CLIENT_ID=$(infra_out cognito_client_id)
+: "${ISSUER:?/spry/infra/cognito_authority not found — apply infra/ (Terraform) first}" "${CLIENT_ID:?}"
 echo "   issuer:    $ISSUER"
 echo "   client id: $CLIENT_ID"
 

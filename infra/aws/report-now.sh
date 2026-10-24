@@ -5,7 +5,6 @@ set -euo pipefail
 export MSYS_NO_PATHCONV=1 AWS_PAGER=""
 
 : "${AWS_REGION:?}"
-REPORTS_STACK="${REPORTS_STACK:-spry-reports}"
 WEEK="${WEEK:-}"
 
 if [[ -n "$WEEK" && ! "$WEEK" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
@@ -13,8 +12,12 @@ if [[ -n "$WEEK" && ! "$WEEK" =~ ^[0-9]{4}-W[0-9]{2}$ ]]; then
   exit 1
 fi
 
-QUEUE_URL=$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-name "$REPORTS_STACK" \
-  --query "Stacks[0].Outputs[?OutputKey=='QueueUrl'].OutputValue" --output text | tr -d '\r')
+# From `terraform output -raw report_queue_url` (the Makefile passes it), else from SSM.
+QUEUE_URL="${QUEUE_URL:-}"
+if [[ -z "$QUEUE_URL" ]]; then
+  QUEUE_URL=$(aws ssm get-parameter --region "$AWS_REGION" --name /spry/infra/report_queue_url \
+    --query Parameter.Value --output text | tr -d '\r')
+fi
 if [[ -n "$WEEK" ]]; then
   BODY="{\"week\": \"$WEEK\", \"source\": \"make\"}"
 else

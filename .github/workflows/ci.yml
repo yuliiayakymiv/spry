@@ -55,6 +55,21 @@ jobs:
       - run: npx prettier --check .
       - run: npm run build
 
+  infra:
+    name: Infra · terraform fmt + validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    # Only syntax, types and references: no cloud access, no state. Plans and applies run in
+    # HCP Terraform (workspace spry-dev), which reports its plan on the pull request itself.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+
   # ---- CD: only on push to main, only if both CI jobs passed ----
   # Repository variables (Settings → Secrets and variables → Actions → Variables):
   #   AWS_REGION, AWS_DEPLOY_ROLE_ARN, S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID

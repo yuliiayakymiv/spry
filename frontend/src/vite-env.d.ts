@@ -9,6 +9,6 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_CLIENT_ID?: string
   /** Managed login base URL, https://<prefix>.auth.<region>.amazoncognito.com */
   readonly VITE_COGNITO_DOMAIN?: string
-  /** Agenda parser function URL (infra/ai.yml, Lab 6). Empty = Paste an agenda is hidden. */
+  /** Agenda parser function URL (infra/ai.tf, Lab 6). Empty = Paste an agenda is hidden. */
   readonly VITE_PARSER_URL?: string
 }

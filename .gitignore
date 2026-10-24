@@ -12,3 +12,14 @@ dist/
 *.rendered.json
 infra/aws/.state*
 infra/aws/setup.log
+
+# Terraform (infra/): state lives in HCP Terraform, never in Git
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+infra/.build/
+infra/generated.tf
+infra/migrate/.*.yml
