@@ -82,6 +82,7 @@ resource "aws_vpc_endpoint" "s3" {
 resource "aws_sqs_queue" "report_requests_dlq" {
   name                      = "${var.project_name}-report-requests-dlq"
   message_retention_seconds = 1209600 # 14 days, the maximum
+  max_message_size          = 1048576 # the AWS default since 2025 (1 MiB); the provider assumes 256 KiB
   sqs_managed_sse_enabled   = true
 }
 
@@ -89,6 +90,7 @@ resource "aws_sqs_queue" "report_requests" {
   name = "${var.project_name}-report-requests"
   # 6 x the builder timeout: a message must not reappear while an attempt is still running.
   visibility_timeout_seconds = 360
+  max_message_size           = 1048576 # the AWS default since 2025 (1 MiB)
   sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({

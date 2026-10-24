@@ -84,7 +84,9 @@ resource "aws_cognito_user_pool_client" "web" {
   name         = "${var.project_name}-web"
   user_pool_id = aws_cognito_user_pool.main.id
 
-  generate_secret                      = false # public client: a browser cannot keep a secret -> PKCE
+  # Public client, no secret (a browser cannot keep one -> PKCE). `generate_secret` is left out on
+  # purpose: AWS never reports it back, so after an import `false` here would force a replacement
+  # of the client, i.e. a new client id.
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
