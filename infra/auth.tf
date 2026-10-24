@@ -141,4 +141,12 @@ resource "aws_cognito_managed_login_branding" "main" {
 
   # a v2 domain has no sign-in page without branding
   depends_on = [aws_cognito_user_pool_domain.main]
+
+  # Cognito reports back more assets than we send (its own defaults for the other categories),
+  # and any asset difference forces a replacement, so every plan would delete and re-create the
+  # branding. The asset blocks are therefore only used on create. To ship a changed .svg, run a
+  # plan with "replace" for this resource in HCP Terraform (or -replace=aws_cognito_managed_login_branding.main).
+  lifecycle {
+    ignore_changes = [asset]
+  }
 }
