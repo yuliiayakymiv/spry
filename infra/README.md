@@ -12,6 +12,7 @@
 | `outputs.tf` | `terraform output` | stack outputs |
 | `branding/` | sign-in page look, read directly by `auth.tf` (`render.py` is gone) | pasted into `auth.yml` |
 | `lambda/report_mailer/` | mailer source, zipped by `archive_file` | inline `ZipFile` |
+| `bootstrap/` | one-time: OIDC provider + role for HCP Terraform (local state, run once) | — |
 | `migrate/` | the one-time CloudFormation → Terraform migration (kept as a record) | — |
 | `aws/` | Lab 2 setup scripts and deploy scripts (not Terraform) | — |
 
