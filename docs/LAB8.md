@@ -152,7 +152,7 @@ money it is wrong to the kopiyka — the one place where "approximately" is not 
 
 ### Way B — Glue Crawler (`crawler.sh` prints both schemas)
 
-What to look at and our observations (_▢_ = check against the printed schema):
+What `crawler.sh` printed (both schemas side by side, `lab8/data/crawler.txt`):
 - **Types.** Inferred from the values it sampled: `amount`, `finalamount`, `ccy` and also `mcc` →
   **`int`** (we chose `bigint` for amounts and `string` for `mcc`); the three dates → **`string`**
   (JSON has no date type and the crawler does not recognise ISO 8601 as a timestamp). `int` holds
