@@ -8,7 +8,10 @@
 What it does with every message, in order:
   1. drop it if it is an exact duplicate (same invoiceId + status + modifiedDate seen before);
   2. put it in the one-minute window of its EVENT time (modifiedDate), not of its arrival;
-  3. move the watermark = the newest event time seen so far;
+  3. move the watermark: the newest event time seen in EACH partition, and the overall watermark
+     is the minimum of those (as in Flink). Partitions are read in batches, so after a pause one
+     partition can run minutes ahead of another; taking the max would wrongly reject the slower
+     partitions' events as late;
   4. close every window whose end + allowed lateness (2 min) is behind the watermark: print
      failure share per paymentMethod and an ALERT if it is above 10 %;
   5. an event whose window is already closed is LATE: counted and rejected.
@@ -48,6 +51,7 @@ class FailureRateWindows:
             lambda: defaultdict(lambda: [0, 0])
         )
         self.watermark = 0
+        self.part_wm: dict[int, int] = {}  # partition -> newest event time seen in it
         # The dedup memory. It only grows: in production it lives in Redis / Flink state with a TTL
         # (a duplicate cannot arrive days later, so a key can be forgotten after, say, 1 hour).
         self.seen: set[str] = set()
@@ -62,7 +66,7 @@ class FailureRateWindows:
         self.out = out
 
     # ---- one event ----
-    def process(self, ev: dict) -> None:
+    def process(self, ev: dict, partition: int = 0) -> None:
         self.stats["received"] += 1
         key = f"{ev['invoiceId']}|{ev['status']}|{ev['modifiedDate']}"
         if key in self.seen:
@@ -84,9 +88,17 @@ class FailureRateWindows:
             cell[0] += 1
             cell[1] += ev["status"] == "failure"
 
-        if t > self.watermark:
-            self.watermark = t
-            self.close_ready()
+        if t > self.part_wm.get(partition, 0):
+            self.part_wm[partition] = t
+            wm = min(self.part_wm.values())
+            if wm > self.watermark:
+                self.watermark = wm
+                self.close_ready()
+
+    def forget_partitions(self, partitions: list[int]) -> None:
+        """Partitions handed to another consumer no longer hold our watermark back."""
+        for p in partitions:
+            self.part_wm.pop(p, None)
 
     # ---- closing windows ----
     def close_ready(self) -> None:
@@ -125,6 +137,7 @@ class FailureRateWindows:
     def dump(self) -> dict:
         return {
             "watermark": self.watermark,
+            "part_wm": self.part_wm,
             "seen": sorted(self.seen),
             "stats": self.stats,
             "open": {
@@ -138,6 +151,7 @@ class FailureRateWindows:
             set(st["seen"]),
             st["stats"],
         )
+        self.part_wm = {int(k): v for k, v in st.get("part_wm", {}).items()}
         for s, ms in st["open"].items():
             for m, c in ms.items():
                 self.open[int(s)][m] = c
@@ -180,6 +194,7 @@ def from_redpanda(args, agg: FailureRateWindows) -> None:
         # Hand the partitions over with our position committed, so the next owner does not
         # re-read what we already counted.
         print(f"# revoked partitions {[p.partition for p in partitions]}", flush=True)
+        agg.forget_partitions([p.partition for p in partitions])
         try:
             consumer.commit(asynchronous=False)
         except KafkaException as e:  # e.g. nothing consumed yet
@@ -218,7 +233,7 @@ def from_redpanda(args, agg: FailureRateWindows) -> None:
             print(f"# {msg.error()}", file=sys.stderr)
             continue
         last_msg = now
-        agg.process(json.loads(msg.value()))
+        agg.process(json.loads(msg.value()), msg.partition())
 
     # Graceful stop (Ctrl+C): remember where we are. With --state the open windows and the dedup
     # set are saved too, so a restart continues exactly; without it they are printed as partial.

@@ -177,10 +177,24 @@ def experiment1() -> None:
 
 def experiment2() -> None:
     log("\n=== Experiment 2: two consumers in one group ===")
+    reset_topic()  # both consumers must be in the group before data arrives
     a = start(["lab8/consumer.py", "--group", "exp2"], "exp2a-consumer")
-    time.sleep(8)
     b = start(["lab8/consumer.py", "--group", "exp2"], "exp2b-consumer")
-    time.sleep(25)
+    time.sleep(15)
+    p = start(
+        [
+            "lab8/producer.py",
+            str(DATA),
+            "--start",
+            "08:00",
+            "--max-events",
+            "6000",
+            "--rate",
+            "60",
+        ],
+        "exp2-producer",
+    )
+    time.sleep(30)
     for m in members("exp2"):
         log(f"  member {m}")
     log(f"consumer A: {last('exp2a-consumer', 'assigned partitions')}")
@@ -188,9 +202,12 @@ def experiment2() -> None:
     stop(b)
     time.sleep(10)
     log(f"after B stopped, consumer A: {last('exp2a-consumer', 'assigned partitions')}")
+    p.wait()
+    wait_idle("exp2a-consumer")
     stop(a)
+    log(f"producer: {sent('exp2-producer')} events sent")
     log(f"A: {last('exp2a-consumer', 'TOTAL')}")
-    log(f"B: {last('exp2b-consumer', 'TOTAL')}")
+    log(f"B (stopped after 30 s): {last('exp2b-consumer', 'TOTAL')}")
 
 
 def experiment3() -> None:
