@@ -195,6 +195,10 @@ def from_redpanda(args, agg: FailureRateWindows) -> None:
 
     signal.signal(signal.SIGINT, handle)
     signal.signal(signal.SIGTERM, handle)
+    if hasattr(
+        signal, "SIGBREAK"
+    ):  # Windows: Ctrl+Break, what run_part3.py sends to stop us
+        signal.signal(signal.SIGBREAK, handle)
 
     last_msg, last_report = time.monotonic(), time.monotonic()
     while not stop:

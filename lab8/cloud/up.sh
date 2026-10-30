@@ -61,7 +61,7 @@ if ! aws firehose describe-delivery-stream --delivery-stream-name $FIREHOSE >/de
 fi
 
 echo "5/5 Lambda with a 60-second tumbling window on the stream"
-$PY -c "import zipfile; z=zipfile.ZipFile('alert_lambda.zip','w'); z.write('alert_lambda.py'); z.close()"
+"$PY" -c "import zipfile; z=zipfile.ZipFile('alert_lambda.zip','w'); z.write('alert_lambda.py'); z.close()"
 if aws lambda get-function --function-name $LAMBDA >/dev/null 2>&1; then
   aws lambda update-function-code --function-name $LAMBDA --zip-file fileb://alert_lambda.zip >/dev/null
 else
