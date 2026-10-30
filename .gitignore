@@ -23,3 +23,7 @@ crash.log
 infra/.build/
 infra/generated.tf
 infra/migrate/.*.yml
+
+# Lab 8: downloaded dataset, consumer state, Lambda zip
+lab8/data/
+lab8/cloud/*.zip

@@ -1,0 +1,48 @@
+# Part 3: Redpanda (a Kafka-compatible broker, one node) + Redpanda Console.
+#   docker compose -f lab8/docker-compose.yml up -d
+#   Console: http://localhost:8080      Kafka API from the laptop: localhost:19092
+# A one-shot container creates the `payments` topic with 3 partitions and exits.
+name: lab8
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container        # single node, small memory, no fsync tuning
+      - --smp=1
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      # what clients are told to connect to: containers use redpanda:9092, the laptop localhost:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data   # the log survives `docker compose restart`
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 5s
+      retries: 20
+
+  create-topic:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    depends_on:
+      redpanda: { condition: service_healthy }
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        rpk topic create payments --partitions 3 --replicas 1 -X brokers=redpanda:9092
+        || rpk topic describe payments -X brokers=redpanda:9092
+    restart: "no"
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:latest
+    depends_on:
+      redpanda: { condition: service_healthy }
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    ports:
+      - "8080:8080"
+
+volumes:
+  redpanda-data:
