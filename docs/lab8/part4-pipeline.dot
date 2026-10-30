@@ -1,8 +1,8 @@
 digraph lab8 {
-  rankdir=LR; bgcolor="white"; pad=0.3; nodesep=0.45; ranksep=0.55;
+  rankdir=TB; bgcolor="white"; pad=0.3; nodesep=0.45; ranksep=0.55;
   node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f4f6f8", color="#5b6770", penwidth=1.2];
   edge [fontname="Helvetica", fontsize=9.5, color="#4a5560"];
-  label="Lab 8, Part 4 — payments stream in AWS (us-east-1, Free plan: SQS instead of Kinesis + Firehose)"; labelloc=t; fontname="Helvetica-Bold"; fontsize=15;
+  label="Lab 8, Part 4 — payments stream in AWS\n(us-east-1, Free plan: SQS instead of Kinesis + Firehose)"; labelloc=t; fontname="Helvetica-Bold"; fontsize=15;
 
   subgraph cluster_src { label="CloudShell (or the laptop)"; style="rounded,dashed"; color="#9aa5ae"; fontname="Helvetica";
     data [label="events.jsonl\n(one day, from\ns3://ucu-ooad-lab8-payments)", shape=note, fillcolor="#ffffff"];
