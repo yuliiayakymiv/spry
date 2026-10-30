@@ -2,35 +2,33 @@ digraph lab8 {
   rankdir=LR; bgcolor="white"; pad=0.3; nodesep=0.45; ranksep=0.55;
   node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f4f6f8", color="#5b6770", penwidth=1.2];
   edge [fontname="Helvetica", fontsize=9.5, color="#4a5560"];
-  label="Lab 8, Part 4 — payments stream in AWS (us-east-1)"; labelloc=t; fontname="Helvetica-Bold"; fontsize=15;
+  label="Lab 8, Part 4 — payments stream in AWS (us-east-1, Free plan: SQS instead of Kinesis + Firehose)"; labelloc=t; fontname="Helvetica-Bold"; fontsize=15;
 
-  subgraph cluster_laptop { label="Laptop"; style="rounded,dashed"; color="#9aa5ae"; fontname="Helvetica";
+  subgraph cluster_src { label="CloudShell (or the laptop)"; style="rounded,dashed"; color="#9aa5ae"; fontname="Helvetica";
     data [label="events.jsonl\n(one day, from\ns3://ucu-ooad-lab8-payments)", shape=note, fillcolor="#ffffff"];
-    prod [label="producer.py --sink kinesis\nreplay by receivedAt, ~20 payments/s\nkey = invoiceId\n(--fail-share 0.3 for the alert)"];
+    prod [label="producer.py --sink sqs\nreplay by receivedAt, 60 payments/s\n(--fail-share 0.3 for the alert)"];
     data -> prod;
   }
 
   subgraph cluster_aws { label="AWS"; style="rounded"; color="#c0791b"; fontname="Helvetica";
-    kds  [label="Kinesis Data Stream\nlab8-payments\n1 shard, 24 h retention", fillcolor="#fde9d0"];
-    subgraph cluster_rt { label="real-time road (seconds)"; style="rounded,filled"; fillcolor="#fff6ec"; color="#e3b37a";
-      lam  [label="Lambda lab8-failure-alert\n60 s tumbling window (arrival time)\ndedup → failure share per paymentMethod", fillcolor="#fde9d0"];
+    sqs  [label="SQS queue lab8-payments\n(the stream: standard queue,\nno partitions, 1-day retention)", fillcolor="#fde9d0"];
+    lam  [label="Lambda lab8-stream-processor\nbatches ≤ 60 s / 10 000 msgs (arrival time)\ndedup within batch", fillcolor="#fde9d0"];
+    subgraph cluster_rt { label="real-time road (≈ 1 min)"; style="rounded,filled"; fillcolor="#fff6ec"; color="#e3b37a";
       sns  [label="SNS topic\nlab8-failure-alerts", fillcolor="#fde9d0"];
       mail [label="e-mail", shape=ellipse, fillcolor="#ffffff"];
-      cw   [label="CloudWatch Logs\none line per window", fillcolor="#fde9d0"];
     }
     subgraph cluster_batch { label="batch road (minutes → overnight)"; style="rounded,filled"; fillcolor="#eef4fb"; color="#8fb0d6";
-      fh   [label="Firehose\nlab8-payments-to-s3\nbuffer 60 s / 5 MB, gzip", fillcolor="#dde9f6"];
-      s3   [label="S3  s3://BUCKET/stream/\ndt=<arrival date>/*.gz\n(JSON Lines)", shape=cylinder, fillcolor="#dde9f6"];
+      s3   [label="S3  s3://BUCKET/stream/\ndt=<arrival date>/*.jsonl.gz\n(one file per batch)", shape=cylinder, fillcolor="#dde9f6"];
       ath  [label="Athena  lab8.payments_stream\nJSON SerDe + partition projection", fillcolor="#dde9f6"];
     }
+    cw [label="CloudWatch Logs\none line per batch", fillcolor="#fde9d0"];
   }
 
-  prod -> kds [label="PutRecords\n(≤500 per call)"];
-  kds  -> lam [label="event source mapping\nbatch ≤500, ≤5 s"];
-  lam  -> sns [label="Publish if share > 10 %\nand ≥10 payments"];
+  prod -> sqs [label="SendMessageBatch\n(10 per call)"];
+  sqs  -> lam [label="event source mapping"];
+  lam  -> s3  [label="PutObject (gzip)\n= what Firehose did"];
+  lam  -> sns [label="Publish if failure share\n> 10 % and ≥ 10 payments"];
   sns  -> mail;
   lam  -> cw  [style=dashed];
-  kds  -> fh  [label="reads the same shard\n(second consumer)"];
-  fh   -> s3  [label="one file per\nbuffer flush"];
   s3   -> ath [label="SQL, $5 per TB scanned", dir=back];
 }
