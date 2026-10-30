@@ -271,14 +271,21 @@ def main() -> None:
             f"missing {DATA}: aws s3 cp s3://ucu-ooad-lab8-payments/payments/dt=2026-10-01/events.jsonl "
             "lab8/data/ --no-sign-request"
         )
+    # python lab8/run_part3.py 4   -> only experiment 4 (any subset of 1 2 3 4)
+    only = sys.argv[1:] or ["1", "2", "3", "4"]
     t0 = time.time()
     try:
-        experiment1()
-        experiment2()
-        experiment3()
-        experiment4()
+        for n, exp in (
+            ("1", experiment1),
+            ("2", experiment2),
+            ("3", experiment3),
+            ("4", experiment4),
+        ):
+            if n in only:
+                exp()
     finally:
-        (OUT / "SUMMARY.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
+        name = "SUMMARY.txt" if len(only) == 4 else f"SUMMARY-exp{''.join(only)}.txt"
+        (OUT / name).write_text("\n".join(summary) + "\n", encoding="utf-8")
         subprocess.run(COMPOSE + ["down"], capture_output=True, check=False)
     print(f"\nDone in {(time.time() - t0) / 60:.0f} min. Everything is in {OUT}")
 

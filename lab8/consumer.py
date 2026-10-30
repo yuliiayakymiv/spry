@@ -189,6 +189,11 @@ def from_redpanda(args, agg: FailureRateWindows) -> None:
 
     def on_assign(consumer, partitions):
         print(f"# assigned partitions {[p.partition for p in partitions]}", flush=True)
+        # Until a partition has delivered something, its watermark is 0 and holds the overall
+        # watermark back: otherwise the first partition fetched would race minutes ahead and the
+        # others' events would all look late (what happens when a full topic is read at once).
+        for tp in partitions:
+            agg.part_wm.setdefault(tp.partition, 0)
 
     def on_revoke(consumer, partitions):
         # Hand the partitions over with our position committed, so the next owner does not
