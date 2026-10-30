@@ -98,20 +98,40 @@ data is the one thing that cannot be recovered later — everything else can be 
 
 ### Answers
 
-**Scale** (`07_scale.sql`): unique `invoiceId` _▢_; raw events _▢_, after `DISTINCT` _▢_ →
-duplicates _▢_ (_▢_ %, the brief says ~1 %); events more than an hour late: _▢_ (_▢_ %; the brief
-says late events are 1–10 min late, so the expected answer is 0). Payments by final status:
-`08_payments_by_status.csv`.
+**Scale** (`07_scale.sql`, 31 partitions):
 
-**Results of queries 2–6:** `lab8/athena/results/08…12_*.csv` (+ screenshots).
+| | |
+|---|---|
+| raw events | **3 030 197** |
+| after `DISTINCT` | **3 000 000** |
+| exact duplicates | **30 197** (0.997 %) |
+| unique `invoiceId` = rows in `payments` | **1 000 000** (exactly 3 events per payment) |
+| events more than an hour late | **0** (0 %); the largest delay is 600 s = 10 min |
+| events more than 60 s late (query 6) | **60 231 of 3 000 000 = 2.008 %**; p50 delay 1 s, p99 324 s |
+| final status (query 2) | success **939 820** (93.98 %), failure **60 180** (6.02 %), none stuck in `processing` |
+
+The numbers match the brief: ~1 % duplicates, ~2 % late by 1–10 minutes, nothing later.
+
+**Results of queries 2–6:** `lab8/athena/results/08…12_*.csv` (+ screenshots). Highlights:
+- turnover (query 3): the largest is m-009 *Інтернет-магазин* — 10 084 500.30 EUR from 2 840
+  payments, then m-008 *АЗС* 4 708 258.32 EUR; full table per currency in `09_turnover.csv`;
+- failure rate (query 4): flat — every method × device is close to the overall 6.0 %;
+  the highest is `qr` on `android` with 6.71 % (448 of 6 675), then `apple_pay`/`android` 6.13 %;
+- peak hours (query 5): `11_peak_hours.csv` (Kyiv time); the night is quiet (03:00–04:00 ≈ 6.7 k
+  payments per hour over the month vs 42.8 k at 00:00).
 
 **JSON vs Parquet** (from `lab8/athena/results/stats.md`):
 
 | Query | JSON: run time / scanned | Parquet: run time / scanned | cheaper by |
 |---|---|---|---|
-| 3 turnover | _▢_ s / _▢_ MB | _▢_ s / _▢_ MB | _▢_× |
-| 4 failure rate | _▢_ s / _▢_ MB | _▢_ s / _▢_ MB | _▢_× |
-| 5 peak hours | _▢_ s / _▢_ MB | _▢_ s / _▢_ MB | _▢_× |
+| 3 turnover | 3.29 s / 1 260.69 MB | 1.18 s / 6.39 MB | 197× less scanned, 2.8× faster |
+| 4 failure rate | 3.95 s / 1 260.69 MB | 0.95 s / 0.68 MB | 1 854× less scanned, 4.2× faster |
+| 5 peak hours | 5.70 s / 1 260.69 MB | 1.79 s / 8.48 MB | 149× less scanned, 3.2× faster |
+
+In money: Athena bills at least 10 MB per query, so each Parquet query is billed as 10 MB against
+1 260.69 MB on JSON — **126× cheaper** ($0.0063 → $0.00005 per run at $5/TB). Writing the
+Parquet copy once (query 7) cost one full scan, 1 260.69 MB in 7.84 s, so it pays for itself on
+the second query.
 
 Why: on JSON every query reads the whole 1.2 GB of text and repeats the deduplication. Parquet is
 columnar (a query reads only the 3–4 columns it needs), compressed, typed, and already holds one row
@@ -138,15 +158,19 @@ money it is wrong to the kopiyka — the one place where "approximately" is not 
 ### Way B — Glue Crawler (`crawler.sh` prints both schemas)
 
 What to look at and our observations (_▢_ = check against the printed schema):
-- **Types.** The crawler infers from a sample of the JSON: `amount`, `finalamount` → `bigint`,
-  `ccy` → `int`; the dates → `string` (JSON has no date type; it does not recognise ISO 8601 as a
-  timestamp) _▢_.
-- **Partition.** `dt=YYYY-MM-DD` folders are Hive-style, so it creates partition key `dt` (string)
-  and registers all 31 partitions itself — no `MSCK REPAIR` _▢_.
-- **`failureReason`.** Present only on failed events; the crawler merges the schemas of the sampled
-  records, so it appears as a nullable `string` column and is `NULL` on the other rows _▢_. Had the
-  sample contained no failed events, the column would be missing until the next crawl — schema by
-  sampling is a guess.
+- **Types.** Inferred from the values it sampled: `amount`, `finalamount`, `ccy` and also `mcc` →
+  **`int`** (we chose `bigint` for amounts and `string` for `mcc`); the three dates → **`string`**
+  (JSON has no date type and the crawler does not recognise ISO 8601 as a timestamp). `int` holds
+  amounts up to 2 147 483 647 minor units ≈ 21.5 M UAH — fine for this sample, an overflow waiting
+  for one large payment; `mcc` as a number loses leading zeros (MCC `0742` would become `742`).
+- **Partition.** `dt=YYYY-MM-DD` folders are Hive-style, so it created partition key **`dt`
+  (string)** and registered **all 31 partitions** itself — no `MSCK REPAIR`. The SerDe is the same
+  `org.openx.data.jsonserde.JsonSerDe`.
+- **`failureReason`.** Only failed events carry it; the crawler merges the schemas of the records it
+  sampled, so it is there as a nullable **`string`**, but **last in the column list** (columns come
+  in the order first seen, so `status`, `modifieddate`, `finalamount`, `receivedat` also moved).
+  Had no failed event been sampled, the column would simply be missing until the next crawl —
+  schema by sampling is a guess.
 - **Which is more convenient.** For querying, the crawled table is ready with zero typing and new
   partitions appear on every run. Hand-written schemas stay common because they are a *contract*:
   exact types (`decimal` for money, `int` for `ccy`), stable names, documented in Git and reviewed;
@@ -188,8 +212,8 @@ itself, on graceful stop and on rebalance.
    of the numbers; a correct global share would need a second aggregation step. Stop one — its
    partitions move to the other after a rebalance. A third consumer still works; a fourth would be
    idle: parallelism ≤ number of partitions.
-3. **30 % failures.** `producer.py … --fail-share 0.3`: the failure share jumps from _▢_ % to about
-   _▢_ % (base + 0.3 × (1 − base)) and an `ALERT` line follows every closed window for every method
+3. **30 % failures.** `producer.py … --fail-share 0.3`: the failure share jumps from ~6 % (Part 2:
+   6.02 %) to about 34 % (0.06 + 0.3 × 0.94), _▢_ in our run, and an `ALERT` line follows every closed window for every method
    _▢_.
 4. **No waiting for late events.** Same topic, a fresh group, `--lateness 0 --out lateness0.csv`,
    compared with a run with `--lateness 120 --out lateness120.csv` via `compare_windows.py`.
