@@ -15,7 +15,9 @@ if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
 fi
 
 # S3 -> S3 copy: the bytes never pass through your laptop.
-aws s3 sync s3://ucu-ooad-lab8-payments/payments/ "s3://$BUCKET/payments/" --region "$REGION"
+# --copy-props none: files over 8 MB are copied in parts, and by default the CLI then also
+# copies their tags (GetObjectTagging), which the course bucket does not allow.
+aws s3 sync s3://ucu-ooad-lab8-payments/payments/ "s3://$BUCKET/payments/" --region "$REGION" --copy-props none
 
 echo
 aws s3 ls "s3://$BUCKET/payments/" --recursive --summarize --human-readable | tail -2
