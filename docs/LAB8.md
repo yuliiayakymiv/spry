@@ -5,8 +5,6 @@ Two roads for the same data: **batch** (Athena + Glue over S3, answers overnight
 Lab 8 runs in **us-east-1** (the dataset bucket is there and copying inside one region is free),
 not in eu-central-1 like the Spry stack.
 
-Numbers marked _▢_ come from our own run and are filled in after it; everything else is final.
-
 ## What is where
 
 | Part | Files |
@@ -113,8 +111,9 @@ The numbers match the brief: ~1 % duplicates, ~2 % late by 1–10 minutes, nothi
   payments, then m-008 *АЗС* 4 708 258.32 EUR; full table per currency in `09_turnover.csv`;
 - failure rate (query 4): flat — every method × device is close to the overall 6.0 %;
   the highest is `qr` on `android` with 6.71 % (448 of 6 675), then `apple_pay`/`android` 6.13 %;
-- peak hours (query 5): `11_peak_hours.csv` (Kyiv time); the night is quiet (03:00–04:00 ≈ 6.7 k
-  payments per hour over the month vs 42.8 k at 00:00).
+- peak hours (query 5, Kyiv time): the peak is the evening, **21:00 — 78 663 payments** over the
+  month (then 20:00 — 74 695, 22:00 — 70 662); the trough is 05:00 — 6 551. A second, smaller peak
+  is at 15:00 (65 296).
 
 **JSON vs Parquet** (from `lab8/athena/results/stats.md`):
 
@@ -221,8 +220,10 @@ watermark jumped minutes ahead and most events of the other two partitions were 
    failures. Those 48 are noise: a cell with 13 card payments and 2 failures is already 15 %;
    a real alert would need more payments per cell (a longer window or a higher `--min-count`).
 4. **No waiting for late events.** Same topic read twice, `--lateness 120` vs `--lateness 0`, compared
-   by `compare_windows.py`. Rejected as late: _▢_ events with 120 s vs _▢_ with 0 s; _▢_ of _▢_ windows
-   changed. Windows close as soon as the next minute starts, so every event delayed past its window
+   by `compare_windows.py`. Rejected as late: **92** events with 120 s vs **129** with 0 s
+   (+40 %); **51 of 166** windows changed. In this run the topic was full before the consumers started,
+   so arrivals are dense and most late events still fit; in the live run of experiment 1, waiting
+   120 s kept 212 rejections at ~1.4 %. Windows close as soon as the next minute starts, so every event delayed past its window
    end is dropped, and in a cell with 5–10 payments one missing failure moves the share by 10–20
    points — an alert can appear or vanish. Even with 120 s, events 2–10 min late are rejected: the
    waiting time trades **latency** (results 2 min later) for **completeness**. The batch road in
