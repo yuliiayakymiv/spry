@@ -1,6 +1,7 @@
 """Replay one day of payment events into a stream, in the order they reached us.
 
-Part 3 sends to the local Redpanda topic, Part 4 to a Kinesis data stream: the replay logic
+Part 3 sends to the local Redpanda topic, Part 4 to an SQS queue (or a Kinesis stream on the
+AWS Paid plan): the replay logic
 is the same, only the sink differs.
 
     # one day of the dataset (the bucket is public)
@@ -8,6 +9,7 @@ is the same, only the sink differs.
 
     python lab8/producer.py lab8/data/events.jsonl                         # -> Redpanda, 20 payments/s
     python lab8/producer.py lab8/data/events.jsonl --fail-share 0.3        # experiment 3
+    python lab8/producer.py lab8/data/events.jsonl --sink sqs --stream lab8-payments
     python lab8/producer.py lab8/data/events.jsonl --sink kinesis --stream lab8-payments
     python lab8/producer.py lab8/data/events.jsonl --sink stdout --max-events 5   # dry run
 
@@ -124,6 +126,36 @@ class KinesisSink:
             )
 
 
+class SqsSink:
+    """SendMessageBatch, 10 messages per call. A standard queue has no partitions and no key:
+    SQS does not keep the order of one payment's events, unlike a Kafka partition or a shard."""
+
+    def __init__(self, queue: str, region: str):
+        import boto3
+
+        self.q = boto3.client("sqs", region_name=region)
+        self.url = self.q.get_queue_url(QueueName=queue)["QueueUrl"]
+        self.batch: list[dict] = []
+
+    def send(self, key: str, value: str) -> None:
+        self.batch.append({"Id": str(len(self.batch)), "MessageBody": value})
+        if len(self.batch) == 10:
+            self.flush()
+
+    def flush(self) -> None:
+        entries, self.batch = self.batch, []
+        while entries:
+            resp = self.q.send_message_batch(QueueUrl=self.url, Entries=entries)
+            failed = {f["Id"] for f in resp.get("Failed", [])}
+            entries = [e for e in entries if e["Id"] in failed]
+            if entries:
+                time.sleep(0.2)
+
+    def close(self) -> None:
+        if self.batch:
+            self.flush()
+
+
 class StdoutSink:
     def send(self, key: str, value: str) -> None:
         print(key, value)
@@ -138,11 +170,13 @@ def main() -> None:
     )
     ap.add_argument("file", help="one day of events, JSON Lines (events.jsonl)")
     ap.add_argument(
-        "--sink", choices=["redpanda", "kinesis", "stdout"], default="redpanda"
+        "--sink", choices=["redpanda", "sqs", "kinesis", "stdout"], default="redpanda"
     )
     ap.add_argument("--brokers", default="localhost:19092")
     ap.add_argument("--topic", default="payments")
-    ap.add_argument("--stream", default="lab8-payments", help="Kinesis stream name")
+    ap.add_argument(
+        "--stream", default="lab8-payments", help="SQS queue or Kinesis stream name"
+    )
     ap.add_argument("--region", default="us-east-1")
     ap.add_argument(
         "--rate", type=float, default=20, help="payments per second (default 20)"
@@ -172,6 +206,7 @@ def main() -> None:
 
     sink = {
         "redpanda": lambda: RedpandaSink(args.brokers, args.topic),
+        "sqs": lambda: SqsSink(args.stream, args.region),
         "kinesis": lambda: KinesisSink(args.stream, args.region),
         "stdout": StdoutSink,
     }[args.sink]()
