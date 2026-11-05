@@ -54,6 +54,17 @@ variable "site_url" {
   }
 }
 
+variable "extra_site_urls" {
+  type        = list(string)
+  default     = []
+  description = "More origins that sign in through this user pool (Lab 9: the copy on Firebase Hosting)"
+
+  validation {
+    condition     = alltrue([for u in var.extra_site_urls : can(regex("^https://[^/]+$", u))])
+    error_message = "https://<host>, no path and no trailing slash."
+  }
+}
+
 variable "local_url" {
   type    = string
   default = "http://localhost:5173"

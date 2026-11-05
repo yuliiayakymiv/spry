@@ -94,8 +94,8 @@ resource "aws_cognito_user_pool_client" "web" {
   supported_identity_providers = ["COGNITO", aws_cognito_identity_provider.google.provider_name]
 
   # Must match redirect_uri byte for byte, trailing slash included.
-  callback_urls = ["${var.site_url}/", "${var.local_url}/"]
-  logout_urls   = ["${var.site_url}/", "${var.local_url}/"]
+  callback_urls = concat(["${var.site_url}/", "${var.local_url}/"], [for u in var.extra_site_urls : "${u}/"])
+  logout_urls   = concat(["${var.site_url}/", "${var.local_url}/"], [for u in var.extra_site_urls : "${u}/"])
 
   explicit_auth_flows           = ["ALLOW_REFRESH_TOKEN_AUTH"]
   prevent_user_existence_errors = "ENABLED"
