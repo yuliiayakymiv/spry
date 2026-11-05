@@ -1,8 +1,8 @@
 # Lab 9 — One project, two clouds: Spry on Google Cloud
 
 Spry's core (frontend, API, database) runs on Google Cloud next to the AWS stack. Service choices:
-[ADR 0008](adr/0008-google-cloud.md). Infrastructure: [`gcp/`](../gcp/) (own HCP Terraform
-workspace `spry-gcp`), application road: [`gcp/deploy.sh`](../gcp/deploy.sh). How to run and stop it:
+[ADR 0008](adr/0008-google-cloud.md). Infrastructure: [`gcp/`](../gcp/) (own state in a
+versioned Cloud Storage bucket, ADR 0008), application road: [`gcp/deploy.sh`](../gcp/deploy.sh). How to run and stop it:
 [gcp/README.md](../gcp/README.md).
 
 ```

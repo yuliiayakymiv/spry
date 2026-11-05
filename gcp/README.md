@@ -5,12 +5,12 @@ Decisions: [ADR 0008](../docs/adr/0008-google-cloud.md). Lab write-up: [docs/LAB
 
 | File | What |
 |---|---|
-| `versions.tf` | `google` / `google-beta` providers, HCP Terraform workspace **`spry-gcp`** (own state, separate from `spry-dev`) |
+| `versions.tf` | `google` / `google-beta` providers impersonating `terraform@`; state in its own GCS bucket (separate from the AWS state) |
 | `apis.tf` | the APIs this configuration needs, enabled by Terraform |
 | `database.tf` | Cloud SQL PostgreSQL 17 `db-f1-micro`, 10 GB SSD; database + user; password → Secret Manager |
 | `run.tf` | Artifact Registry, service account `spry-api@`, Cloud Run service `spry-api` (min 0) |
 | `hosting.tf` | Firebase project + Hosting site `<project>.web.app` |
-| `bootstrap/` | run once by a person: `terraform@` service account + Workload Identity Federation for HCP Terraform |
+| `bootstrap/` | run once by a person: `terraform@` service account (least privilege), who may impersonate it, the state bucket |
 | `deploy.sh` | the application road: image → Cloud Run, static build → Firebase Hosting |
 | `../frontend/firebase.json` | Hosting config: `/api/**` → Cloud Run, everything else → `index.html` |
 
@@ -22,32 +22,29 @@ Decisions: [ADR 0008](../docs/adr/0008-google-cloud.md). Lab write-up: [docs/LAB
 
 ## Deploy
 
-No service account keys anywhere. Laptop / Cloud Shell: your own `gcloud` login. HCP Terraform:
-Workload Identity Federation.
+No service account keys anywhere: you run Terraform with your own `gcloud` login, and the providers
+impersonate `terraform@` (short-lived tokens, only its roles). State: the versioned bucket
+`gs://spry-yuliia-2026-tfstate/gcp/`, separate from the AWS state in HCP Terraform (`spry-dev`).
 
 1. **Once — bootstrap** (Cloud Shell, as yourself, local state):
    ```sh
    cd gcp/bootstrap && terraform init
-   terraform apply -var project_id=$PROJECT_ID -var hcp_organization_id=org-... -var hcp_workspace_id=ws-...
+   terraform apply -var project_id=spry-yuliia-2026 -var admin=user:$(gcloud config get account)
    ```
-   Put the three `workspace_env` outputs into the `spry-gcp` workspace as **environment** variables;
-   Terraform variables there: `project_id`, `cognito_issuer`, `cognito_client_id`.
-2. **Infrastructure:** the workspace is connected to this repo with working directory `gcp`:
-   a PR gets a plan, a merge to `main` applies (same as `infra/` in Lab 7).
+2. **Infrastructure:** `cd gcp && terraform init && terraform plan && terraform apply`
+   (values in `gcp/terraform.tfvars`; nothing secret there).
 3. **Application:** in Cloud Shell, repo root:
    ```sh
-   PROJECT_ID=... COGNITO_AUTHORITY=... COGNITO_CLIENT_ID=... COGNITO_DOMAIN=... bash gcp/deploy.sh
+   PROJECT_ID=spry-yuliia-2026 COGNITO_AUTHORITY=... COGNITO_CLIENT_ID=... COGNITO_DOMAIN=... bash gcp/deploy.sh
    ```
    Migrations run at container start (`alembic upgrade head`) against the empty database; no data
    was copied from AWS.
-4. Open `https://<project>.web.app` in a private window → sign in → the meetings list (reads Cloud SQL).
-   `curl https://<project>.web.app/api/health` → `{"status":"ok"}` (`SELECT 1` on Cloud SQL).
+4. Open `https://spry-yuliia-2026.web.app` in a private window → sign in → the meetings list (reads
+   Cloud SQL). `curl https://spry-yuliia-2026.web.app/api/health` → `{"status":"ok"}`.
 
 ## Stop the database (it does not pause on its own)
 
-- **Stop** (storage still bills, $1.70/month): workspace variable `db_activation_policy = "NEVER"`
-  → new run, or `gcloud sql instances patch spry-db --activation-policy=NEVER`.
+- **Stop** (storage still bills, $1.70/month): `terraform apply -var db_activation_policy=NEVER`, or `gcloud sql instances patch spry-db --activation-policy=NEVER`.
   Start again with `ALWAYS` (~1 min). While stopped, every API call that reads the DB fails.
-- **Delete everything:** HCP Terraform → `spry-gcp` → Settings → Destruction → *Queue destroy plan*
-  (or `terraform destroy` here). Then `terraform destroy` in `bootstrap/` and, if you like, delete
+- **Delete everything:** `terraform destroy` here. Then `terraform destroy` in `bootstrap/` and, if you like, delete
   the project. Check Billing → Reports a day later.

@@ -1,11 +1,9 @@
-# Run ONCE, by a person, with their own gcloud login (application default credentials) and local
-# state, e.g. from Cloud Shell:  terraform init && terraform apply -var project_id=... -var ...
-# It creates what HCP Terraform needs to log in to Google Cloud without any stored key:
+# Run ONCE, by a person, with their own gcloud login and local state (Cloud Shell):
+#   cd gcp/bootstrap && terraform init && terraform apply -var project_id=spry-yuliia-2026 -var admin=user:you@gmail.com
+# Creates what gcp/ needs before it can run:
 #   - the service account `terraform@` with only the roles gcp/ needs (no Owner / Editor);
-#   - a workload identity pool + OIDC provider that trusts HCP Terraform's run tokens,
-#     admitting only ONE organisation and ONE workspace, by their immutable IDs;
-#   - Workload Identity User on the service account for that workspace.
-# No service account key is ever created.
+#   - the right for ONE person to impersonate it (short-lived tokens; no key is ever created);
+#   - a versioned Cloud Storage bucket for gcp/'s state.
 
 terraform {
   required_version = ">= 1.10"
@@ -21,29 +19,27 @@ variable "project_id" {
   type = string
 }
 
-variable "hcp_organization_id" {
-  type        = string
-  description = "org-... (HCP Terraform -> Organization settings -> General -> ID). Names can be re-registered, IDs cannot."
+variable "region" {
+  type    = string
+  default = "europe-west1"
 }
 
-variable "hcp_workspace_id" {
+variable "admin" {
   type        = string
-  description = "ws-... of the spry-gcp workspace"
+  description = "Who may run gcp/ as terraform@, e.g. user:you@gmail.com"
 }
 
 provider "google" {
   project = var.project_id
 }
 
-data "google_project" "this" {}
-
 resource "google_project_service" "base" {
   for_each = toset([
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
-    "sts.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "serviceusage.googleapis.com",
+    "storage.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
@@ -51,7 +47,7 @@ resource "google_project_service" "base" {
 
 resource "google_service_account" "terraform" {
   account_id   = "terraform"
-  display_name = "Terraform (HCP Terraform workspace spry-gcp)"
+  display_name = "Terraform for gcp/ (impersonated, no keys)"
   depends_on   = [google_project_service.base]
 }
 
@@ -64,8 +60,8 @@ locals {
     "roles/secretmanager.admin",
     "roles/serviceusage.serviceUsageAdmin",
     "roles/iam.serviceAccountUser",
-    # what gcp/ also creates: the API's own service account and its two role bindings,
-    # and the Firebase project + Hosting site
+    # what gcp/ also creates: the API's service account and its role bindings,
+    # the Firebase project and Hosting site
     "roles/iam.serviceAccountAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/firebase.admin",
@@ -79,45 +75,46 @@ resource "google_project_iam_member" "terraform" {
   member   = google_service_account.terraform.member
 }
 
-resource "google_iam_workload_identity_pool" "hcp" {
-  workload_identity_pool_id = "hcp-terraform"
-  display_name              = "HCP Terraform"
-  depends_on                = [google_project_service.base]
-}
-
-resource "google_iam_workload_identity_pool_provider" "hcp" {
-  workload_identity_pool_id          = google_iam_workload_identity_pool.hcp.workload_identity_pool_id
-  workload_identity_pool_provider_id = "hcp-terraform"
-  display_name                       = "app.terraform.io"
-
-  oidc {
-    issuer_uri = "https://app.terraform.io"
-    # Default audience: //iam.googleapis.com/<this provider's full name>, which is what HCP
-    # Terraform sends when TFC_GCP_WORKLOAD_PROVIDER_NAME is set.
-  }
-
-  attribute_mapping = {
-    "google.subject"                       = "assertion.sub"
-    "attribute.terraform_organization_id"  = "assertion.terraform_organization_id"
-    "attribute.terraform_workspace_id"     = "assertion.terraform_workspace_id"
-    "attribute.terraform_run_phase"        = "assertion.terraform_run_phase"
-  }
-
-  # Tokens from any other organisation or workspace are rejected before any role is considered.
-  attribute_condition = "assertion.terraform_organization_id == \"${var.hcp_organization_id}\" && assertion.terraform_workspace_id == \"${var.hcp_workspace_id}\""
-}
-
-resource "google_service_account_iam_member" "hcp_workspace" {
+# Only this person can mint short-lived tokens for terraform@.
+resource "google_service_account_iam_member" "admin_impersonates" {
   service_account_id = google_service_account.terraform.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.hcp.name}/attribute.terraform_workspace_id/${var.hcp_workspace_id}"
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = var.admin
 }
 
-# Paste these three into the spry-gcp workspace as environment variables.
-output "workspace_env" {
-  value = {
-    TFC_GCP_PROVIDER_AUTH             = "true"
-    TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL = google_service_account.terraform.email
-    TFC_GCP_WORKLOAD_PROVIDER_NAME    = google_iam_workload_identity_pool_provider.hcp.name
+resource "google_storage_bucket" "tfstate" {
+  name                        = "${var.project_id}-tfstate"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = true # lab: let `terraform destroy` here remove it
+
+  versioning {
+    enabled = true # every state version kept: a bad apply can be rolled back
   }
+
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 10
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  depends_on = [google_project_service.base]
+}
+
+resource "google_storage_bucket_iam_member" "terraform_state" {
+  bucket = google_storage_bucket.tfstate.name
+  role   = "roles/storage.objectAdmin"
+  member = google_service_account.terraform.member
+}
+
+output "terraform_service_account" {
+  value = google_service_account.terraform.email
+}
+
+output "state_bucket" {
+  value = google_storage_bucket.tfstate.name
 }
