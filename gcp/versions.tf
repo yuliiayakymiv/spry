@@ -1,14 +1,15 @@
 terraform {
   required_version = ">= 1.10"
 
-  # Its own state, separate from infra/ (HCP Terraform workspace spry-dev), so that one plan can
-  # never touch both clouds. In a versioned Cloud Storage bucket created by gcp/bootstrap, because
-  # access to the HCP Terraform account was lost (ADR 0008). Moving it to an HCP workspace later is a
-  # `cloud {}` block + `terraform init -migrate-state`.
-  backend "gcs" {
-    bucket                      = "spry-yuliia-2026-tfstate"
-    prefix                      = "gcp"
-    impersonate_service_account = "terraform@spry-yuliia-2026.iam.gserviceaccount.com"
+  # Its own state: a second HCP Terraform workspace next to infra/'s spry-dev, so that one plan
+  # can never touch both clouds. (For the first apply the state was in gs://spry-yuliia-2026-tfstate
+  # while the HCP account was locked; moved with `terraform init -migrate-state`.)
+  cloud {
+    organization = "ooad-yuliiayakymiv"
+
+    workspaces {
+      name = "spry-gcp"
+    }
   }
 
   required_providers {
@@ -28,13 +29,14 @@ terraform {
   }
 }
 
-# Credentials: no keys. A person runs it with their own gcloud login, and every call is made AS the
-# service account `terraform@` (impersonation: a short-lived token, only its roles), so the plan can
-# do exactly what that account may do and nothing more.
+# Credentials: none here, no keys anywhere. A run in HCP Terraform presents its signed OIDC token to
+# Google (Workload Identity Federation, gcp/bootstrap) and gets a short-lived token of the service
+# account terraform@ — only for this organisation and this workspace, matched by their IDs.
+# Workspace env vars: TFC_GCP_PROVIDER_AUTH, TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL,
+# TFC_GCP_WORKLOAD_PROVIDER_NAME.
 provider "google" {
-  project                     = var.project_id
-  region                      = var.region
-  impersonate_service_account = "terraform@${var.project_id}.iam.gserviceaccount.com"
+  project = var.project_id
+  region  = var.region
 
   default_labels = {
     project    = var.project_name
@@ -43,9 +45,8 @@ provider "google" {
 }
 
 provider "google-beta" {
-  project                     = var.project_id
-  region                      = var.region
-  impersonate_service_account = "terraform@${var.project_id}.iam.gserviceaccount.com"
+  project = var.project_id
+  region  = var.region
   # The Firebase Management API bills quota to a project; ours, not the caller's default.
   user_project_override = true
   billing_project       = var.project_id
