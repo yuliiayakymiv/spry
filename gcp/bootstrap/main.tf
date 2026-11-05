@@ -118,3 +118,72 @@ output "terraform_service_account" {
 output "state_bucket" {
   value = google_storage_bucket.tfstate.name
 }
+
+# ---------------------------------------------------------------------------------------------
+# HCP Terraform -> Google Cloud without keys (Workload Identity Federation).
+# Set both IDs (HCP: Organization settings -> General -> ID; workspace -> Settings -> ID) and
+# re-apply. Names can be re-registered by someone else, IDs cannot: the condition uses IDs.
+variable "hcp_organization_id" {
+  type    = string
+  default = ""
+}
+
+variable "hcp_workspace_id" {
+  type    = string
+  default = ""
+}
+
+locals {
+  hcp = var.hcp_organization_id != "" && var.hcp_workspace_id != ""
+}
+
+resource "google_project_service" "sts" {
+  service            = "sts.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_iam_workload_identity_pool" "hcp" {
+  count                     = local.hcp ? 1 : 0
+  workload_identity_pool_id = "hcp-terraform"
+  display_name              = "HCP Terraform"
+  depends_on                = [google_project_service.base, google_project_service.sts]
+}
+
+resource "google_iam_workload_identity_pool_provider" "hcp" {
+  count                              = local.hcp ? 1 : 0
+  workload_identity_pool_id          = google_iam_workload_identity_pool.hcp[0].workload_identity_pool_id
+  workload_identity_pool_provider_id = "hcp-terraform"
+  display_name                       = "app.terraform.io"
+
+  oidc {
+    # Default audience //iam.googleapis.com/<provider name>: what HCP Terraform sends when
+    # TFC_GCP_WORKLOAD_PROVIDER_NAME is set.
+    issuer_uri = "https://app.terraform.io"
+  }
+
+  attribute_mapping = {
+    "google.subject"                      = "assertion.sub"
+    "attribute.terraform_organization_id" = "assertion.terraform_organization_id"
+    "attribute.terraform_workspace_id"    = "assertion.terraform_workspace_id"
+    "attribute.terraform_run_phase"       = "assertion.terraform_run_phase"
+  }
+
+  # A token from any other organisation or workspace is rejected before any role is looked at.
+  attribute_condition = "assertion.terraform_organization_id == \"${var.hcp_organization_id}\" && assertion.terraform_workspace_id == \"${var.hcp_workspace_id}\""
+}
+
+resource "google_service_account_iam_member" "hcp_workspace" {
+  count              = local.hcp ? 1 : 0
+  service_account_id = google_service_account.terraform.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.hcp[0].name}/attribute.terraform_workspace_id/${var.hcp_workspace_id}"
+}
+
+# Environment variables for the spry-gcp workspace.
+output "hcp_workspace_env" {
+  value = local.hcp ? {
+    TFC_GCP_PROVIDER_AUTH             = "true"
+    TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL = google_service_account.terraform.email
+    TFC_GCP_WORKLOAD_PROVIDER_NAME    = google_iam_workload_identity_pool_provider.hcp[0].name
+  } : null
+}
