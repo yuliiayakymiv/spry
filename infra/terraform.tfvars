@@ -8,6 +8,9 @@ cognito_domain_prefix = "spry-yuliia"
 site_url              = "https://d1rjthazsn1a8j.cloudfront.net"
 google_client_id      = "556813383999-lulkcr8h3bctmiogtcjs7e7u79br696g.apps.googleusercontent.com"
 
+# Lab 9: the same site on Firebase Hosting (gcp/) signs in through this pool and calls the parser.
+extra_site_urls = ["https://spry-yuliia-2026.web.app"]
+
 # reports.tf
 report_recipients    = "yuliaa.yakymiv@gmail.com"
 report_sender_domain = ""

@@ -96,7 +96,7 @@ resource "aws_lambda_function_url" "agenda_parser" {
   authorization_type = "NONE"
 
   cors {
-    allow_origins = [var.site_url, var.local_url]
+    allow_origins = concat([var.site_url, var.local_url], var.extra_site_urls)
     allow_methods = ["POST"]
     allow_headers = ["authorization", "content-type"]
     max_age       = 3600
