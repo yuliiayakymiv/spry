@@ -128,6 +128,8 @@ resource "google_cloud_run_v2_service" "api" {
     google_project_service.api,
     google_secret_manager_secret_iam_member.api_database_url,
     google_project_iam_member.api_sql,
+    # "latest" must exist when the first revision starts: the version needs the DB user first.
+    google_secret_manager_secret_version.database_url,
   ]
 }
 
