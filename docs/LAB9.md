@@ -110,7 +110,7 @@ Screenshots: [BigQuery](lab9/1-bigquery.png) · [Looker Studio](lab9/2-looker-st
 
 | Demo | Result |
 |---|---|
-| **BigQuery** over `bigquery-public-data.usa_names.usa_1910_current`: top names of the 2010s | 10 rows (Emma, Olivia, Noah, Sophia, Liam, …), **161.77 MB processed**, 162 MB billed, 0.66 s — 0.02 % of the free TiB a month |
+| **BigQuery** over `bigquery-public-data.usa_names.usa_1910_current`: top names of the 2010s | 10 rows (Emma, Olivia, Noah, Sophia, Liam, …), **143.71 MB processed**, 144 MB billed, 0.30 s — 0.01 % of the free TiB a month |
 | **Looker Studio** over that query (BigQuery → *Open in* → Looker Studio) | report "Lab 9 - Spry - BigQuery: top names of the 2010s": table + bar chart of births per name |
 | **Vision API OCR** (`gcloud ml vision detect-document`) on a handwritten sample page | "This is a hand written message to use with Google Cloud Platform, To demonstrate the capabilities of the Cloud Vision API to detect handwritten text," — word for word; 1 unit of the 1 000 free a month |
 
