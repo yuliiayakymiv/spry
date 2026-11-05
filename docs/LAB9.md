@@ -26,7 +26,8 @@ Weekly report, agenda parser, e-mail (SES): still on AWS.
 | Image | Cloud Build → `europe-west1-docker.pkg.dev/spry-yuliia-2026/spry/api:<git sha>` (`gcp/deploy.sh backend`) |
 
 - **Data:** migrations against the empty database (`alembic upgrade head` at container start), no
-  `pg_dump` — the Lab 2 RDS instance no longer exists. The first meeting is created in the UI.
+  `pg_dump` — RDS is in a private subnet (`--no-publicly-accessible`), a dump would need a bastion.
+  The first meeting is created in the UI.
 - **What changed in the code:** one line — the Dockerfile listens on `${PORT:-8000}` (Cloud Run sets
   `PORT=8080`). No Lambda adapter existed: the API was always a plain container (ECS).
 - **Without a token** `/api/meetings` answers **401**: the service allows unauthenticated

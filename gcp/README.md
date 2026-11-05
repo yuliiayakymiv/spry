@@ -38,7 +38,7 @@ impersonate `terraform@` (short-lived tokens, only its roles). State: the versio
    PROJECT_ID=spry-yuliia-2026 COGNITO_AUTHORITY=... COGNITO_CLIENT_ID=... COGNITO_DOMAIN=... bash gcp/deploy.sh
    ```
    Migrations run at container start (`alembic upgrade head`) against the empty database; no data
-   was copied from AWS.
+   was copied from AWS (RDS is private; see ADR 0008).
 4. Open `https://spry-yuliia-2026.web.app` in a private window → sign in → the meetings list (reads
    Cloud SQL). `curl https://spry-yuliia-2026.web.app/api/health` → `{"status":"ok"}`.
 

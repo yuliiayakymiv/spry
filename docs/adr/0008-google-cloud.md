@@ -51,8 +51,9 @@ would save ~$9/month at the price of rewriting every query — not worth it whil
 (meetings, participants, attendance, weekly aggregates).
 
 **Data:** migrations against the empty database (`alembic upgrade head` runs at container start),
-no `pg_dump`: the Lab 2 RDS instance was torn down after grading, and test data is re-created in
-the UI.
+no `pg_dump`. The RDS instance is `--no-publicly-accessible` in a private subnet: dumping it would
+need a bastion or an ECS one-off task plus an S3 hop, for a few demo rows owned by Cognito users who
+exist on both sides anyway. Test data is created again in the UI.
 
 ### E-mail
 
