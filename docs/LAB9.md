@@ -1,8 +1,8 @@
 # Lab 9 — One project, two clouds: Spry on Google Cloud
 
 Spry's core (frontend, API, database) runs on Google Cloud next to the AWS stack. Service choices:
-[ADR 0008](adr/0008-google-cloud.md). Infrastructure: [`gcp/`](../gcp/) (own state in a
-versioned Cloud Storage bucket, ADR 0008), application road: [`gcp/deploy.sh`](../gcp/deploy.sh). How to run and stop it:
+[ADR 0008](adr/0008-google-cloud.md). Infrastructure: [`gcp/`](../gcp/) (own HCP Terraform
+workspace `spry-gcp`, Workload Identity Federation, no keys), application road: [`gcp/deploy.sh`](../gcp/deploy.sh). How to run and stop it:
 [gcp/README.md](../gcp/README.md).
 
 ```
@@ -22,7 +22,7 @@ Weekly report, agenda parser, e-mail (SES): still on AWS.
 | API through the site | `https://spry-yuliia-2026.web.app/api/health` → `{"status":"ok"}` (runs `SELECT 1` on Cloud SQL) |
 | API directly | `https://spry-api-260095337643.europe-west1.run.app` (Cloud Run, min 0, as `spry-api@`) |
 | Database | Cloud SQL `spry-yuliia-2026:europe-west1:spry-db`, PostgreSQL 17, db-f1-micro, 10 GB SSD |
-| Infrastructure | `gcp/` — 22 resources, `terraform apply` from Cloud Shell impersonating `terraform@`; state `gs://spry-yuliia-2026-tfstate/gcp/` |
+| Infrastructure | `gcp/` — 22 resources; HCP Terraform workspace `spry-gcp`, runs as `terraform@` via Workload Identity Federation |
 | Image | Cloud Build → `europe-west1-docker.pkg.dev/spry-yuliia-2026/spry/api:<git sha>` (`gcp/deploy.sh backend`) |
 
 - **Data:** migrations against the empty database (`alembic upgrade head` at container start), no
