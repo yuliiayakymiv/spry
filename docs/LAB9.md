@@ -14,6 +14,27 @@ Sign-in: Cognito on AWS (eu-central-1). The API verifies its JWTs itself.
 Weekly report, agenda parser, e-mail (SES): still on AWS.
 ```
 
+## Part 2 — what runs (2026-11-05)
+
+| What | Where |
+|---|---|
+| Site | **https://spry-yuliia-2026.web.app** (Firebase Hosting) |
+| API through the site | `https://spry-yuliia-2026.web.app/api/health` → `{"status":"ok"}` (runs `SELECT 1` on Cloud SQL) |
+| API directly | `https://spry-api-260095337643.europe-west1.run.app` (Cloud Run, min 0, as `spry-api@`) |
+| Database | Cloud SQL `spry-yuliia-2026:europe-west1:spry-db`, PostgreSQL 17, db-f1-micro, 10 GB SSD |
+| Infrastructure | `gcp/` — 22 resources, `terraform apply` from Cloud Shell impersonating `terraform@`; state `gs://spry-yuliia-2026-tfstate/gcp/` |
+| Image | Cloud Build → `europe-west1-docker.pkg.dev/spry-yuliia-2026/spry/api:<git sha>` (`gcp/deploy.sh backend`) |
+
+- **Data:** migrations against the empty database (`alembic upgrade head` at container start), no
+  `pg_dump` — the Lab 2 RDS instance no longer exists. The first meeting is created in the UI.
+- **What changed in the code:** one line — the Dockerfile listens on `${PORT:-8000}` (Cloud Run sets
+  `PORT=8080`). No Lambda adapter existed: the API was always a plain container (ECS).
+- **Without a token** `/api/meetings` answers **401**: the service allows unauthenticated
+  invocations because the API verifies Cognito JWTs itself.
+- **Still on AWS:** sign-in (Cognito; the Firebase origin was added to the app client's callback
+  URLs and the parser's CORS in `infra/`, applied by HCP Terraform `spry-dev`), weekly report, agenda
+  parser, SES.
+
 ## Part 3 — the minimal setup on both clouds, and what it costs
 
 List prices in USD, 730 h/month, no tax, checked 2026-11-05. AWS: us-east-1 (as Lab 4); Google
@@ -77,3 +98,26 @@ The second trap is **Firestore's per-read bill**: a list page that reads 500 doc
 spends the daily 50 k free reads after 100 visits — the bill follows the code, as Aurora's followed
 the health check. And the classic one: a **stopped Cloud SQL still bills its storage**, and a
 forgotten running one bills ~$0.30/day — the most common surprise on a student's bill.
+
+## Part 4 — demos
+
+| Demo | Result |
+|---|---|
+| **BigQuery** over `bigquery-public-data.usa_names.usa_1910_current`: top names of the 2010s | 10 rows (Emma, Olivia, Noah, Sophia, Liam, …), **161.77 MB processed**, 162 MB billed, 0.66 s — 0.02 % of the free TiB a month |
+| **Looker Studio** over that query (BigQuery → *Open in* → Looker Studio) | report "Lab 9 - Spry - BigQuery: top names of the 2010s": table + bar chart of births per name |
+| **Vision API OCR** (`gcloud ml vision detect-document`) on a handwritten sample page | "This is a hand written message to use with Google Cloud Platform, To demonstrate the capabilities of the Cloud Vision API to detect handwritten text," — word for word; 1 unit of the 1 000 free a month |
+
+**Document AI vs a general LLM (Lab 6).** A specialised service wins when the input is a *document*
+(scans, photos, forms, tables) and the output is fixed: it is cheap ($1.50 / 1 000 pages, 1 000
+free), deterministic, gives coordinates and confidence per word, and does not hallucinate a field
+that is not there. An LLM wins when the input is free text and the output needs understanding —
+Lab 6's agenda pasted from an e-mail, with times implied ("after lunch") and items to merge. Often
+both: OCR first, LLM on the text.
+
+**Lab 8 on Google Cloud.** Athena + Glue Catalog + the CTAS to Parquet → **BigQuery** (load the JSON
+once into a native, columnar table; no partitions to register, no crawler, no separate
+JSON/Parquet copies to keep in sync); the stream (Kinesis/SQS → Lambda → S3) → **Pub/Sub →
+Dataflow** (one Beam job for the stream *and* the replay, with event-time windows and watermarks
+built in — what our `consumer.py` did by hand) **→ BigQuery**; QuickSight → **Looker Studio**
+(free). No longer managed by us: the Glue catalog and `MSCK REPAIR`, the Parquet rewrite, the
+watermark and dedup code, and the Lambda batching.
