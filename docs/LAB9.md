@@ -32,6 +32,9 @@ Weekly report, agenda parser, e-mail (SES): still on AWS.
   `PORT=8080`). No Lambda adapter existed: the API was always a plain container (ECS).
 - **Without a token** `/api/meetings` answers **401**: the service allows unauthenticated
   invocations because the API verifies Cognito JWTs itself.
+- **Checked in a private window:** sign in through Cognito → back on `spry-yuliia-2026.web.app` →
+  `GET /api/meetings` 200, `POST /api/meetings` 201, list re-read from Cloud SQL
+  ([screenshot](lab9/0-site-on-firebase.png)).
 - **Still on AWS:** sign-in (Cognito; the Firebase origin was added to the app client's callback
   URLs and the parser's CORS in `infra/`, applied by HCP Terraform `spry-dev`), weekly report, agenda
   parser, SES.
@@ -101,6 +104,9 @@ the health check. And the classic one: a **stopped Cloud SQL still bills its sto
 forgotten running one bills ~$0.30/day — the most common surprise on a student's bill.
 
 ## Part 4 — demos
+
+Screenshots: [BigQuery](lab9/1-bigquery.png) · [Looker Studio](lab9/2-looker-studio.png) ·
+[Vision OCR](lab9/3-vision-ocr.png).
 
 | Demo | Result |
 |---|---|
