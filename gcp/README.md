@@ -34,8 +34,10 @@ Workload Identity Federation as `terraform@`.
    ```
    Put the three `hcp_workspace_env` outputs into the `spry-gcp` workspace as **environment**
    variables. Values for the Terraform variables are in `gcp/terraform.tfvars` (nothing secret).
-2. **Infrastructure:** `cd gcp && terraform login && terraform init && terraform plan / apply`
-   (a CLI-driven remote run in HCP Terraform).
+2. **Infrastructure:** the workspace is connected to this repository, working directory `gcp`,
+   auto-apply on: a pull request gets a speculative plan, a merge to `main` plans and applies
+   (same road as `infra/` in Lab 7). From a terminal: `terraform login && terraform plan` (a remote
+   plan in the same workspace).
 3. **Application:** in Cloud Shell, repo root:
    ```sh
    PROJECT_ID=spry-yuliia-2026 COGNITO_AUTHORITY=... COGNITO_CLIENT_ID=... COGNITO_DOMAIN=... bash gcp/deploy.sh
